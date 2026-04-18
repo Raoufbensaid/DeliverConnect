@@ -15,8 +15,7 @@ const calculatePrices = (totalPrice) => {
 // ================================
 const createParcel = async (req, res) => {
   try {
-    const { weight, size, description, pickupAddress, deliveryAddress, price } =
-      req.body;
+    const { weight, size, description, price, sender, recipient } = req.body;
 
     // Upload de la photo si présente
     let photoUrl = null;
@@ -36,8 +35,8 @@ const createParcel = async (req, res) => {
       size,
       description,
       photoUrl,
-      pickupAddress: JSON.parse(pickupAddress),
-      deliveryAddress: JSON.parse(deliveryAddress),
+      sender: JSON.parse(sender),
+      recipient: JSON.parse(recipient),
       price: Number(price),
       commission,
       delivererAmount,

@@ -9,6 +9,17 @@ const addressSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// Schéma pour les infos d'une personne (expéditeur / destinataire)
+const personSchema = new mongoose.Schema(
+  {
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    phone: { type: String, required: true },
+    address: { type: addressSchema, required: true },
+  },
+  { _id: false },
+);
+
 const parcelSchema = new mongoose.Schema(
   {
     clientId: {
@@ -43,14 +54,19 @@ const parcelSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    pickupAddress: {
-      type: addressSchema,
+
+    // Infos expéditeur
+    sender: {
+      type: personSchema,
       required: true,
     },
-    deliveryAddress: {
-      type: addressSchema,
+
+    // Infos destinataire
+    recipient: {
+      type: personSchema,
       required: true,
     },
+
     price: {
       type: Number,
       required: [true, "Le prix est obligatoire"],
@@ -69,7 +85,6 @@ const parcelSchema = new mongoose.Schema(
   },
 );
 
-// Index pour accélérer la récupération du fil d'annonces
 parcelSchema.index({ status: 1, createdAt: -1 });
 parcelSchema.index({ clientId: 1 });
 
