@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const {
+  estimatePrice,
   createParcel,
   getParcels,
   getMyParcels,
@@ -11,6 +12,16 @@ const { protect } = require("../middlewares/auth.middleware");
 const { authorize } = require("../middlewares/role.middleware");
 const upload = require("../middlewares/upload.middleware");
 
+// Estimer le prix (client uniquement)
+// Estimer le prix (client uniquement)
+router.post(
+  "/estimate",
+  protect,
+  authorize("client"),
+  upload.none(),
+  estimatePrice,
+);
+
 // Créer une annonce (client uniquement)
 router.post(
   "/",
@@ -19,7 +30,8 @@ router.post(
   upload.single("photo"),
   createParcel,
 );
-// Fil d'annonces disponibles (livreur uniquement)
+
+// Fil d'annonces (livreur uniquement)
 router.get("/", protect, authorize("livreur"), getParcels);
 
 // Mes annonces (client uniquement)

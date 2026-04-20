@@ -1,23 +1,119 @@
 const Parcel = require("../models/Parcel.model");
 const { uploadToCloudinary } = require("../services/cloudinary.service");
+const { calculateDistance } = require("../services/distance.service");
 
-// Calcul automatique de la commission (20%)
-const calculatePrices = (totalPrice) => {
-  const commission = Math.round(totalPrice * 0.2 * 100) / 100;
-  const delivererAmount = Math.round((totalPrice - commission) * 100) / 100;
-  return { commission, delivererAmount };
+// Tarifs de base par taille
+const BASE_PRICES = { s: 4, m: 7, l: 11, xl: 16, xxl: 22 };
+const getPricePerKm = (distanceKm) => {
+  if (distanceKm <= 10) return 1.5; // Livraison urbaine courte
+  if (distanceKm <= 30) return 1.2; // Livraison urbaine
+  if (distanceKm <= 100) return 0.5; // Courte distance
+  if (distanceKm <= 300) return 0.3; // Moyenne distance
+  return 0.2; // Longue distance
+};
+const FRAGILE_RATE = 0.15;
+const URGENT_RATE = 0.25;
+const COMMISSION_RATE = 0.2;
+
+const calculatePrice = (size, distanceKm, fragile, urgent) => {
+  const basePrice = BASE_PRICES[size] || 7;
+  const distancePrice =
+    Math.round(distanceKm * getPricePerKm(distanceKm) * 100) / 100;
+
+  let total = basePrice + distancePrice;
+  const fragileExtra = fragile
+    ? Math.round(total * FRAGILE_RATE * 100) / 100
+    : 0;
+  total += fragileExtra;
+  const urgentExtra = urgent ? Math.round(total * URGENT_RATE * 100) / 100 : 0;
+  total += urgentExtra;
+
+  const price = Math.round(total * 100) / 100;
+  const commission = Math.round(price * COMMISSION_RATE * 100) / 100;
+  const delivererAmount = Math.round((price - commission) * 100) / 100;
+
+  return {
+    price,
+    commission,
+    delivererAmount,
+    priceBreakdown: { basePrice, distancePrice, fragileExtra, urgentExtra },
+  };
+};
+
+// ================================
+// @route   POST /api/parcels/estimate
+// @desc    Estimer le prix avant création
+// @access  Privé (client uniquement)
+// ================================
+const estimatePrice = async (req, res) => {
+  try {
+    const { size, fragile, urgent, sender, recipient } = req.body;
+
+    if (!BASE_PRICES[size]) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Taille invalide" });
+    }
+
+    const senderParsed = JSON.parse(sender);
+    const recipientParsed = JSON.parse(recipient);
+
+    const distanceKm = await calculateDistance(
+      senderParsed.address || senderParsed,
+      recipientParsed.address || recipientParsed,
+    );
+
+    const { price, commission, delivererAmount, priceBreakdown } =
+      calculatePrice(size, distanceKm, fragile === "true", urgent === "true");
+
+    res.status(200).json({
+      success: true,
+      distanceKm,
+      price,
+      delivererAmount,
+      priceBreakdown: {
+        ...priceBreakdown,
+        fragile: fragile === "true",
+        urgent: urgent === "true",
+        size,
+      },
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
 };
 
 // ================================
 // @route   POST /api/parcels
-// @desc    Créer une annonce de colis
+// @desc    Créer une annonce
 // @access  Privé (client uniquement)
 // ================================
 const createParcel = async (req, res) => {
   try {
-    const { weight, size, description, price, sender, recipient } = req.body;
+    const { weight, size, fragile, urgent, description, sender, recipient } =
+      req.body;
 
-    // Upload de la photo si présente
+    if (!BASE_PRICES[size]) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Taille invalide" });
+    }
+
+    const senderParsed = JSON.parse(sender);
+    const recipientParsed = JSON.parse(recipient);
+
+    // Calcul de la distance réelle
+    const distanceKm = await calculateDistance(
+      senderParsed.address,
+      recipientParsed.address,
+    );
+
+    // Calcul automatique du prix
+    const { price, commission, delivererAmount, priceBreakdown } =
+      calculatePrice(size, distanceKm, fragile === "true", urgent === "true");
+
+    // Upload photo
     let photoUrl = null;
     if (req.file) {
       const result = await uploadToCloudinary(
@@ -27,19 +123,21 @@ const createParcel = async (req, res) => {
       photoUrl = result.secure_url;
     }
 
-    const { commission, delivererAmount } = calculatePrices(Number(price));
-
     const parcel = await Parcel.create({
       clientId: req.user._id,
       weight: Number(weight),
       size,
+      fragile: fragile === "true",
+      urgent: urgent === "true",
       description,
       photoUrl,
-      sender: JSON.parse(sender),
-      recipient: JSON.parse(recipient),
-      price: Number(price),
+      sender: senderParsed,
+      recipient: recipientParsed,
+      distanceKm,
+      price,
       commission,
       delivererAmount,
+      priceBreakdown,
     });
 
     res.status(201).json({
@@ -55,13 +153,14 @@ const createParcel = async (req, res) => {
 
 // ================================
 // @route   GET /api/parcels
-// @desc    Récupérer toutes les annonces disponibles (fil livreurs)
+// @desc    Fil d'annonces (livreur)
 // @access  Privé (livreur uniquement)
 // ================================
 const getParcels = async (req, res) => {
   try {
     const parcels = await Parcel.find({ status: "pending" })
       .populate("clientId", "firstName lastName phone")
+      .select("-commission -price")
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -76,7 +175,7 @@ const getParcels = async (req, res) => {
 
 // ================================
 // @route   GET /api/parcels/my
-// @desc    Récupérer les annonces du client connecté
+// @desc    Annonces du client connecté
 // @access  Privé (client uniquement)
 // ================================
 const getMyParcels = async (req, res) => {
@@ -97,7 +196,7 @@ const getMyParcels = async (req, res) => {
 
 // ================================
 // @route   GET /api/parcels/:id
-// @desc    Récupérer le détail d'une annonce
+// @desc    Détail d'une annonce
 // @access  Privé
 // ================================
 const getParcelById = async (req, res) => {
@@ -155,6 +254,7 @@ const assignParcel = async (req, res) => {
 };
 
 module.exports = {
+  estimatePrice,
   createParcel,
   getParcels,
   getMyParcels,
