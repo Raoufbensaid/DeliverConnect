@@ -5,7 +5,11 @@ const app = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "http://localhost:8081",
+    ],
     credentials: true,
   }),
 );
@@ -26,6 +30,7 @@ app.use("/api/parcels", require("./routes/parcel.routes"));
 app.use("/api/deliveries", require("./routes/delivery.routes"));
 app.use("/api/payments", require("./routes/payment.routes"));
 app.use("/api/analytics", require("./routes/analytics.routes"));
+app.use("/api/tracks", require("./routes/track.routes"));
 
 app.get("/", (req, res) => {
   res.json({ message: "🚀 DeliverConnect API — opérationnelle" });

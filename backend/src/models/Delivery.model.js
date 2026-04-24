@@ -30,18 +30,19 @@ const deliverySchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    pickupAt: {
-      type: Date,
-      default: null,
-    },
-    deliveredAt: {
-      type: Date,
+
+    // Horodatages précis
+    pickupAt: { type: Date, default: null }, // Date/heure réception colis
+    deliveredAt: { type: Date, default: null }, // Date/heure remise colis
+
+    // Infos tracking
+    trackId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Track",
       default: null,
     },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 );
 
 const Delivery = mongoose.model("Delivery", deliverySchema);

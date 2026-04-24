@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "DeliverConnect",
+    "slug": "deliverconnect",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "deliverconnect",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.deliverconnect.app",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "DeliverConnect a besoin de votre position pour suivre la livraison en temps réel.",
+        "NSLocationWhenInUseUsageDescription": "DeliverConnect a besoin de votre position pour suivre la livraison.",
+        "NSCameraUsageDescription": "DeliverConnect a besoin de votre caméra pour prendre des photos des colis.",
+        "NSPhotoLibraryUsageDescription": "DeliverConnect a besoin d'accéder à vos photos pour les colis."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.deliverconnect.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-camera",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.deliverconnect",
+          "enableGooglePay": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "DeliverConnect a besoin de votre position pour suivre la livraison en temps réel.",
+          "isAndroidBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#378ADD"
+        }
+      ]
+    ]
+  }
+}
