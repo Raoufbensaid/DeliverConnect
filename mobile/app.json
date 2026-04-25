@@ -18,6 +18,7 @@
       "infoPlist": {
         "NSLocationAlwaysAndWhenInUseUsageDescription": "DeliverConnect a besoin de votre position pour suivre la livraison en temps réel.",
         "NSLocationWhenInUseUsageDescription": "DeliverConnect a besoin de votre position pour suivre la livraison.",
+        "NSLocationAlwaysUsageDescription": "DeliverConnect a besoin de votre position en arrière-plan pour suivre la livraison.",
         "NSCameraUsageDescription": "DeliverConnect a besoin de votre caméra pour prendre des photos des colis.",
         "NSPhotoLibraryUsageDescription": "DeliverConnect a besoin d'accéder à vos photos pour les colis."
       }

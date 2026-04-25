@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
@@ -14,21 +14,22 @@ import { COLORS } from "../../constants/colors";
 import { getUser, logout } from "../../store/auth";
 import api from "../../services/api";
 
-const sizeLabels = { s: "S", m: "M", l: "L", xl: "XL", xxl: "XXL" };
-
 export default function LivreurHome() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [parcels, setParcels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState("disponibles");
 
-  const fetchParcels = async () => {
+  const fetchData = async () => {
     try {
+      const u = await getUser();
+      setUser(u);
       const res = await api.get("/parcels");
       setParcels(res.data.parcels);
     } catch (err) {
-      Alert.alert("Erreur", "Impossible de charger les annonces");
+      console.error(err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -36,84 +37,26 @@ export default function LivreurHome() {
   };
 
   useEffect(() => {
-    const init = async () => {
-      const u = await getUser();
-      setUser(u);
-      fetchParcels();
-    };
-    init();
+    fetchData();
   }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchParcels();
+    fetchData();
   }, []);
 
   const handleLogout = async () => {
-    await logout();
-    router.replace("/(auth)");
+    Alert.alert("Déconnexion", "Tu veux vraiment te déconnecter ?", [
+      { text: "Annuler", style: "cancel" },
+      {
+        text: "Oui",
+        onPress: async () => {
+          await logout();
+          router.replace("/(auth)");
+        },
+      },
+    ]);
   };
-
-  const renderParcel = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() =>
-        router.push({
-          pathname: "/(livreur)/mission",
-          params: { id: item._id },
-        })
-      }
-    >
-      <View style={styles.cardHeader}>
-        <View style={styles.badges}>
-          <View style={styles.sizeBadge}>
-            <Text style={styles.sizeBadgeText}>{sizeLabels[item.size]}</Text>
-          </View>
-          {item.fragile && (
-            <View style={[styles.badge, { backgroundColor: "#FFF3E0" }]}>
-              <Text style={[styles.badgeText, { color: "#E65100" }]}>
-                Fragile
-              </Text>
-            </View>
-          )}
-          {item.urgent && (
-            <View style={[styles.badge, { backgroundColor: "#FCE4EC" }]}>
-              <Text style={[styles.badgeText, { color: "#C62828" }]}>
-                Urgent
-              </Text>
-            </View>
-          )}
-        </View>
-        <Text style={styles.price}>{item.delivererAmount}€</Text>
-      </View>
-
-      <View style={styles.route}>
-        <View style={styles.routePoint}>
-          <View style={[styles.dot, { backgroundColor: COLORS.primary }]} />
-          <Text style={styles.routeText} numberOfLines={1}>
-            {item.sender?.address?.city || item.sender?.city}
-          </Text>
-        </View>
-        <View style={styles.routeLine} />
-        <View style={styles.routePoint}>
-          <View style={[styles.dot, { backgroundColor: COLORS.danger }]} />
-          <Text style={styles.routeText} numberOfLines={1}>
-            {item.recipient?.address?.city || item.recipient?.city}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.cardFooter}>
-        <Text style={styles.distance}>{item.distanceKm} km</Text>
-        <Text style={styles.weight}>{item.weight} kg</Text>
-        {item.description && (
-          <Text style={styles.desc} numberOfLines={1}>
-            {item.description}
-          </Text>
-        )}
-      </View>
-    </TouchableOpacity>
-  );
 
   if (loading) {
     return (
@@ -128,130 +71,263 @@ export default function LivreurHome() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Bonjour {user?.firstName} 👋</Text>
+          <Text style={styles.greeting}>Bonjour, {user?.firstName} 👋</Text>
           <Text style={styles.headerSub}>
-            {parcels.length} mission{parcels.length > 1 ? "s" : ""} disponible
-            {parcels.length > 1 ? "s" : ""}
+            Choisissez votre prochaine mission
           </Text>
         </View>
-        <View style={styles.headerRight}>
-          <TouchableOpacity
-            style={styles.historyBtn}
-            onPress={() => router.push("/(livreur)/history")}
-          >
-            <Text style={styles.historyBtnText}>Historique</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout}>
-            <Text style={styles.logoutText}>Déconnexion</Text>
-          </TouchableOpacity>
+        <TouchableOpacity onPress={handleLogout}>
+          <Text style={styles.logoutBtn}>Quitter</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Stats rapides */}
+      <View style={styles.statsRow}>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{parcels.length}</Text>
+          <Text style={styles.statLabel}>Disponibles</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>0</Text>
+          <Text style={styles.statLabel}>En cours</Text>
+        </View>
+        <View style={[styles.statCard, { borderColor: COLORS.success }]}>
+          <Text style={[styles.statValue, { color: COLORS.success }]}>0€</Text>
+          <Text style={styles.statLabel}>Gagné aujourd'hui</Text>
         </View>
       </View>
 
-      {/* Fil d'annonces */}
-      <FlatList
-        data={parcels}
-        keyExtractor={(item) => item._id}
-        renderItem={renderParcel}
-        contentContainerStyle={styles.list}
+      {/* Tabs */}
+      <View style={styles.tabs}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "disponibles" && styles.tabActive]}
+          onPress={() => setActiveTab("disponibles")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "disponibles" && styles.tabTextActive,
+            ]}
+          >
+            Disponibles ({parcels.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === "historique" && styles.tabActive]}
+          onPress={() => {
+            setActiveTab("historique");
+            router.push("/(livreur)/history");
+          }}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "historique" && styles.tabTextActive,
+            ]}
+          >
+            Historique
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Liste annonces */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        ListEmptyComponent={
+        contentContainerStyle={{ padding: 16 }}
+      >
+        {parcels.length === 0 ? (
           <View style={styles.empty}>
+            <Text style={styles.emptyIcon}>🔍</Text>
             <Text style={styles.emptyText}>Aucune mission disponible</Text>
             <Text style={styles.emptySub}>
               Tire vers le bas pour actualiser
             </Text>
           </View>
-        }
-      />
+        ) : (
+          parcels.map((p, i) => (
+            <TouchableOpacity
+              key={i}
+              style={styles.missionCard}
+              onPress={() =>
+                router.push(`/(livreur)/mission?parcelId=${p._id}`)
+              }
+            >
+              {/* Route */}
+              <View style={styles.routeRow}>
+                <View style={styles.routePoints}>
+                  <View style={styles.routeDotBlue} />
+                  <View style={styles.routeLine} />
+                  <View style={styles.routeDotGreen} />
+                </View>
+                <View style={styles.routeCities}>
+                  <Text style={styles.routeCity}>
+                    {p.sender?.address?.city}
+                  </Text>
+                  <Text style={styles.routeCity}>
+                    {p.recipient?.address?.city}
+                  </Text>
+                </View>
+                <View style={styles.missionRight}>
+                  <Text style={styles.missionEarning}>
+                    {p.delivererAmount}€
+                  </Text>
+                  <Text style={styles.missionEarningLabel}>à gagner</Text>
+                </View>
+              </View>
+
+              {/* Détails */}
+              <View style={styles.missionDetails}>
+                <View style={styles.missionTag}>
+                  <Text style={styles.missionTagText}>
+                    📦 {p.size?.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.missionTag}>
+                  <Text style={styles.missionTagText}>
+                    📍 {p.distanceKm} km
+                  </Text>
+                </View>
+                {p.fragile && (
+                  <View
+                    style={[styles.missionTag, { backgroundColor: "#FAEEDA" }]}
+                  >
+                    <Text style={[styles.missionTagText, { color: "#633806" }]}>
+                      ⚠️ Fragile
+                    </Text>
+                  </View>
+                )}
+                {p.urgent && (
+                  <View
+                    style={[styles.missionTag, { backgroundColor: "#FFF0EC" }]}
+                  >
+                    <Text style={[styles.missionTagText, { color: "#D85A30" }]}>
+                      ⚡ Urgent
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <Text style={styles.missionDate}>
+                Publié le {new Date(p.createdAt).toLocaleDateString("fr-FR")}
+              </Text>
+            </TouchableOpacity>
+          ))
+        )}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  container: { flex: 1, backgroundColor: COLORS.grayLight, paddingTop: 60 },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    paddingTop: 60,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
+    alignItems: "flex-start",
+    paddingHorizontal: 20,
+    marginBottom: 16,
   },
-  headerTitle: { fontSize: 20, fontWeight: "bold", color: COLORS.text },
+  greeting: { fontSize: 22, fontWeight: "bold", color: COLORS.text },
   headerSub: { fontSize: 13, color: COLORS.textSecond, marginTop: 2 },
-  headerRight: { alignItems: "flex-end", gap: 6 },
-  historyBtn: {
-    backgroundColor: COLORS.grayLight,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+  logoutBtn: { fontSize: 13, color: COLORS.danger, marginTop: 4 },
+  statsRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 16,
+    marginBottom: 16,
   },
-  historyBtnText: { fontSize: 12, color: COLORS.primary, fontWeight: "500" },
-  logoutText: { fontSize: 12, color: COLORS.danger },
-  list: { padding: 16, gap: 12 },
-  card: {
+  statCard: {
+    flex: 1,
     backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
     borderWidth: 1,
     borderColor: COLORS.grayBorder,
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
+  statValue: { fontSize: 20, fontWeight: "700", color: COLORS.primary },
+  statLabel: {
+    fontSize: 10,
+    color: COLORS.textSecond,
+    marginTop: 2,
+    textAlign: "center",
   },
-  badges: { flexDirection: "row", gap: 6 },
-  sizeBadge: {
+  tabs: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    marginBottom: 4,
+    gap: 8,
+  },
+  tab: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 10,
+    alignItems: "center",
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.grayBorder,
+  },
+  tabActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  tabText: { fontSize: 13, color: COLORS.textSecond, fontWeight: "500" },
+  tabTextActive: { color: COLORS.white },
+  empty: { alignItems: "center", paddingVertical: 60 },
+  emptyIcon: { fontSize: 48, marginBottom: 12 },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  emptySub: { fontSize: 13, color: COLORS.textSecond },
+  missionCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.grayBorder,
+  },
+  routeRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  routePoints: { alignItems: "center", marginRight: 10 },
+  routeDotBlue: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: COLORS.primary,
-    borderRadius: 6,
+  },
+  routeLine: {
+    width: 2,
+    height: 24,
+    backgroundColor: COLORS.grayBorder,
+    marginVertical: 3,
+  },
+  routeDotGreen: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.success,
+  },
+  routeCities: { flex: 1, justifyContent: "space-between", height: 48 },
+  routeCity: { fontSize: 15, fontWeight: "600", color: COLORS.text },
+  missionRight: { alignItems: "flex-end" },
+  missionEarning: { fontSize: 22, fontWeight: "800", color: COLORS.success },
+  missionEarningLabel: { fontSize: 11, color: COLORS.textSecond },
+  missionDetails: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 10,
+  },
+  missionTag: {
+    backgroundColor: COLORS.grayLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    borderRadius: 99,
   },
-  sizeBadgeText: { color: COLORS.white, fontSize: 12, fontWeight: "700" },
-  badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
-  badgeText: { fontSize: 11, fontWeight: "600" },
-  price: { fontSize: 22, fontWeight: "bold", color: COLORS.success },
-  route: { marginBottom: 12 },
-  routePoint: { flexDirection: "row", alignItems: "center", gap: 8 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  routeLine: {
-    width: 1,
-    height: 16,
-    backgroundColor: COLORS.grayBorder,
-    marginLeft: 4.5,
-    marginVertical: 2,
-  },
-  routeText: { fontSize: 15, color: COLORS.text, fontWeight: "500", flex: 1 },
-  cardFooter: { flexDirection: "row", gap: 12, alignItems: "center" },
-  distance: {
-    fontSize: 12,
-    color: COLORS.textSecond,
-    backgroundColor: COLORS.grayLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  weight: {
-    fontSize: 12,
-    color: COLORS.textSecond,
-    backgroundColor: COLORS.grayLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  desc: { fontSize: 12, color: COLORS.textSecond, flex: 1 },
-  empty: { alignItems: "center", marginTop: 80 },
-  emptyText: { fontSize: 16, color: COLORS.textSecond, fontWeight: "500" },
-  emptySub: { fontSize: 13, color: COLORS.grayBorder, marginTop: 6 },
+  missionTagText: { fontSize: 11, color: COLORS.text, fontWeight: "500" },
+  missionDate: { fontSize: 11, color: COLORS.textSecond },
 });
