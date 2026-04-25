@@ -4,12 +4,12 @@ const { calculateDistance } = require("../services/distance.service");
 
 // Tarifs de base par taille
 const BASE_PRICES = { s: 4, m: 7, l: 11, xl: 16, xxl: 22 };
-const getPricePerKm = (distanceKm) => {
-  if (distanceKm <= 10) return 1.5; // Livraison urbaine courte
-  if (distanceKm <= 30) return 1.2; // Livraison urbaine
-  if (distanceKm <= 100) return 0.5; // Courte distance
-  if (distanceKm <= 300) return 0.3; // Moyenne distance
-  return 0.2; // Longue distance
+const PRICE_PER_KM_FUNC = (distanceKm) => {
+  if (distanceKm <= 10) return 1.5;
+  if (distanceKm <= 30) return 1.2;
+  if (distanceKm <= 100) return 0.5;
+  if (distanceKm <= 300) return 0.3;
+  return 0.2;
 };
 const FRAGILE_RATE = 0.15;
 const URGENT_RATE = 0.25;
@@ -18,7 +18,7 @@ const COMMISSION_RATE = 0.2;
 const calculatePrice = (size, distanceKm, fragile, urgent) => {
   const basePrice = BASE_PRICES[size] || 7;
   const distancePrice =
-    Math.round(distanceKm * getPricePerKm(distanceKm) * 100) / 100;
+    Math.round(distanceKm * PRICE_PER_KM_FUNC(distanceKm) * 100) / 100;
 
   let total = basePrice + distancePrice;
   const fragileExtra = fragile
@@ -58,10 +58,12 @@ const estimatePrice = async (req, res) => {
     const senderParsed = JSON.parse(sender);
     const recipientParsed = JSON.parse(recipient);
 
-    const distanceKm = await calculateDistance(
+    const result = await calculateDistance(
       senderParsed.address || senderParsed,
       recipientParsed.address || recipientParsed,
     );
+
+    const distanceKm = result.km;
 
     const { price, commission, delivererAmount, priceBreakdown } =
       calculatePrice(size, distanceKm, fragile === "true", urgent === "true");
@@ -103,11 +105,19 @@ const createParcel = async (req, res) => {
     const senderParsed = JSON.parse(sender);
     const recipientParsed = JSON.parse(recipient);
 
-    // Calcul de la distance réelle
-    const distanceKm = await calculateDistance(
+    // Calcul de la distance + récupération des coordonnées GPS
+    const result = await calculateDistance(
       senderParsed.address,
       recipientParsed.address,
     );
+
+    const distanceKm = result.km;
+
+    // Ajouter les coordonnées GPS aux adresses
+    senderParsed.address.lat = result.pickupCoords.lat;
+    senderParsed.address.lng = result.pickupCoords.lng;
+    recipientParsed.address.lat = result.deliveryCoords.lat;
+    recipientParsed.address.lng = result.deliveryCoords.lng;
 
     // Calcul automatique du prix
     const { price, commission, delivererAmount, priceBreakdown } =
@@ -116,11 +126,11 @@ const createParcel = async (req, res) => {
     // Upload photo
     let photoUrl = null;
     if (req.file) {
-      const result = await uploadToCloudinary(
+      const uploaded = await uploadToCloudinary(
         req.file.buffer,
         "deliverconnect/parcels",
       );
-      photoUrl = result.secure_url;
+      photoUrl = uploaded.secure_url;
     }
 
     const parcel = await Parcel.create({

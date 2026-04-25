@@ -5,11 +5,12 @@ const addressSchema = new mongoose.Schema(
     street: { type: String, required: true },
     city: { type: String, required: true },
     postalCode: { type: String, required: true },
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null },
   },
   { _id: false },
 );
 
-// Schéma pour les infos d'une personne (expéditeur / destinataire)
 const personSchema = new mongoose.Schema(
   {
     firstName: { type: String, required: true },
@@ -43,9 +44,30 @@ const parcelSchema = new mongoose.Schema(
     },
     size: {
       type: String,
-      enum: ["xs", "s", "m", "l", "xl"],
+      enum: ["s", "m", "l", "xl", "xxl"],
       required: [true, "La taille est obligatoire"],
     },
+
+    // ← Champs manquants ajoutés
+    fragile: {
+      type: Boolean,
+      default: false,
+    },
+    urgent: {
+      type: Boolean,
+      default: false,
+    },
+    distanceKm: {
+      type: Number,
+      default: 0,
+    },
+    priceBreakdown: {
+      basePrice: { type: Number, default: 0 },
+      distancePrice: { type: Number, default: 0 },
+      fragileExtra: { type: Number, default: 0 },
+      urgentExtra: { type: Number, default: 0 },
+    },
+
     description: {
       type: String,
       default: null,
@@ -54,19 +76,14 @@ const parcelSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-
-    // Infos expéditeur
     sender: {
       type: personSchema,
       required: true,
     },
-
-    // Infos destinataire
     recipient: {
       type: personSchema,
       required: true,
     },
-
     price: {
       type: Number,
       required: [true, "Le prix est obligatoire"],
@@ -80,9 +97,7 @@ const parcelSchema = new mongoose.Schema(
       required: true,
     },
   },
-  {
-    timestamps: true,
-  },
+  { timestamps: true },
 );
 
 parcelSchema.index({ status: 1, createdAt: -1 });

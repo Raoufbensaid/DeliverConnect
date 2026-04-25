@@ -4,8 +4,9 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
+  ScrollView,
   ActivityIndicator,
+  BackHandler,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
@@ -14,36 +15,78 @@ import api from "../../services/api";
 
 export default function Delivering() {
   const router = useRouter();
-  const { parcelId, deliveryId, validationCode } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const { parcelId, deliveryId } = params;
+
   const [trackId, setTrackId] = useState(null);
+  const [parcel, setParcel] = useState(null);
   const [status, setStatus] = useState("active");
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(true);
   const intervalRef = useRef(null);
   const timerRef = useRef(null);
 
-  // Démarrer le tracking au montage
+  // Bloquer le bouton retour Android
   useEffect(() => {
-    startTracking();
+    const backHandler = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => true,
+    );
+    return () => backHandler.remove();
+  }, []);
+
+  // Démarrage
+  useEffect(() => {
+    fetchParcel();
+    if (params.trackId) {
+      setTrackId(params.trackId);
+      setStarting(false);
+      startPositionInterval(params.trackId);
+    } else {
+      startTracking();
+    }
     return () => {
       clearInterval(intervalRef.current);
       clearInterval(timerRef.current);
     };
   }, []);
 
-  // Timer durée
+  // Timer
   useEffect(() => {
     if (status === "active") {
-      timerRef.current = setInterval(() => {
-        setDuration((d) => d + 1);
-      }, 1000);
+      timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
     } else {
       clearInterval(timerRef.current);
     }
     return () => clearInterval(timerRef.current);
   }, [status]);
+
+  const fetchParcel = async () => {
+    try {
+      const res = await api.get(`/parcels/${parcelId}`);
+      setParcel(res.data.parcel);
+    } catch {}
+  };
+
+  const startPositionInterval = (id) => {
+    clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(async () => {
+      try {
+        let loc = { coords: { latitude: 48.8566, longitude: 2.3522 } };
+        try {
+          loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+        } catch {}
+        await api.post(`/tracks/${id}/point`, {
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+        });
+        setDistance((d) => Math.round((d + 0.05) * 100) / 100);
+      } catch {}
+    }, 10000);
+  };
 
   const startTracking = async () => {
     try {
@@ -60,25 +103,7 @@ export default function Delivering() {
         lng: location.coords.longitude,
       });
       setTrackId(res.data.trackId);
-
-      // Envoyer la position toutes les 10 secondes
-      intervalRef.current = setInterval(async () => {
-        if (status === "paused") return;
-        try {
-          let loc = { coords: { latitude: 48.8566, longitude: 2.3522 } };
-          try {
-            loc = await Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.High,
-            });
-          } catch {}
-
-          await api.post(`/tracks/${res.data.trackId}/point`, {
-            lat: loc.coords.latitude,
-            lng: loc.coords.longitude,
-          });
-          setDistance((d) => Math.round((d + 0.05) * 100) / 100);
-        } catch {}
-      }, 10000);
+      startPositionInterval(res.data.trackId);
     } catch (err) {
       console.error(err);
     } finally {
@@ -92,9 +117,7 @@ export default function Delivering() {
       await api.patch(`/tracks/${trackId}/pause`);
       setStatus("paused");
       clearInterval(intervalRef.current);
-    } catch (err) {
-      Alert.alert("Erreur", "Impossible de mettre en pause");
-    }
+    } catch {}
   };
 
   const handleResume = async () => {
@@ -106,38 +129,13 @@ export default function Delivering() {
           accuracy: Location.Accuracy.High,
         });
       } catch {}
-
       await api.patch(`/tracks/${trackId}/resume`, {
         lat: location.coords.latitude,
         lng: location.coords.longitude,
       });
       setStatus("active");
-
-      // Reprendre l'envoi de position
-      intervalRef.current = setInterval(async () => {
-        try {
-          let loc = { coords: { latitude: 48.8566, longitude: 2.3522 } };
-          try {
-            loc = await Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.High,
-            });
-          } catch {}
-          await api.post(`/tracks/${trackId}/point`, {
-            lat: loc.coords.latitude,
-            lng: loc.coords.longitude,
-          });
-        } catch {}
-      }, 10000);
-    } catch (err) {
-      Alert.alert("Erreur", "Impossible de reprendre");
-    }
-  };
-
-  const handleValidate = () => {
-    router.push({
-      pathname: "/(livreur)/validate",
-      params: { parcelId, deliveryId, trackId },
-    });
+      startPositionInterval(trackId);
+    } catch {}
   };
 
   const formatDuration = (seconds) => {
@@ -160,90 +158,126 @@ export default function Delivering() {
 
   return (
     <View style={styles.container}>
-      {/* Status bar */}
-      <View
-        style={[
-          styles.statusBar,
-          status === "paused" && styles.statusBarPaused,
-        ]}
-      >
-        <View style={styles.statusDot} />
-        <Text style={styles.statusText}>
-          {status === "active" ? "🟢 Livraison en cours" : "⏸️ En pause"}
-        </Text>
-      </View>
-
-      {/* Stats */}
-      <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{formatDuration(duration)}</Text>
-          <Text style={styles.statLabel}>Durée</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{distance} km</Text>
-          <Text style={styles.statLabel}>Parcouru</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Livraison en cours</Text>
+          <View
             style={[
-              styles.statValue,
-              { color: status === "active" ? COLORS.success : COLORS.warning },
+              styles.statusBadge,
+              status === "paused" && styles.statusBadgePaused,
             ]}
           >
-            {status === "active" ? "Actif" : "Pause"}
-          </Text>
-          <Text style={styles.statLabel}>Statut GPS</Text>
+            <Text style={styles.statusText}>
+              {status === "active" ? "🟢 En cours" : "⏸️ Pause"}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {/* Info code OTP */}
-      <View style={styles.codeCard}>
-        <Text style={styles.codeTitle}>
-          💬 Code destinataire envoyé par SMS
-        </Text>
-        <Text style={styles.codeDesc}>
-          Le destinataire a reçu un code à 4 chiffres par SMS. Demande-lui ce
-          code à la livraison pour valider la remise.
-        </Text>
-      </View>
+        {/* Avertissement */}
+        <View style={styles.warningCard}>
+          <Text style={styles.warningText}>
+            🔒 Tu ne peux pas quitter cette page tant que la livraison n'est pas
+            validée.
+          </Text>
+        </View>
 
-      {/* Pause / Reprendre */}
-      {status === "active" ? (
-        <TouchableOpacity style={styles.pauseBtn} onPress={handlePause}>
-          <Text style={styles.pauseBtnIcon}>⏸️</Text>
-          <View>
-            <Text style={styles.pauseBtnTitle}>Mettre en pause</Text>
-            <Text style={styles.pauseBtnDesc}>
-              Le tracé restera visible mais votre position sera masquée
-            </Text>
+        {/* Stats */}
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{formatDuration(duration)}</Text>
+            <Text style={styles.statLabel}>Durée</Text>
           </View>
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity style={styles.resumeBtn} onPress={handleResume}>
-          <Text style={styles.resumeBtnIcon}>▶️</Text>
-          <View>
-            <Text style={styles.resumeBtnTitle}>Reprendre la livraison</Text>
-            <Text style={styles.resumeBtnDesc}>
-              Le tracking GPS reprend depuis votre position actuelle
-            </Text>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{distance} km</Text>
+            <Text style={styles.statLabel}>Parcouru</Text>
           </View>
-        </TouchableOpacity>
-      )}
+        </View>
 
-      {/* Info tracking */}
-      <View style={styles.trackingInfo}>
-        <Text style={styles.trackingInfoText}>
-          📍 Votre position est partagée en temps réel avec le client et
-          l'administrateur
-        </Text>
-      </View>
+        {/* Contacts */}
+        {parcel && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>👥 Contacts</Text>
+            <View style={styles.contactBlock}>
+              <Text style={styles.contactRole}>📦 Expéditeur</Text>
+              <Text style={styles.contactName}>
+                {parcel.sender?.firstName} {parcel.sender?.lastName}
+              </Text>
+              <Text style={styles.contactPhone}>📞 {parcel.sender?.phone}</Text>
+              <Text style={styles.contactAddress}>
+                📍 {parcel.sender?.address?.street},{" "}
+                {parcel.sender?.address?.postalCode}{" "}
+                {parcel.sender?.address?.city}
+              </Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.contactBlock}>
+              <Text style={styles.contactRole}>🏠 Destinataire</Text>
+              <Text style={styles.contactName}>
+                {parcel.recipient?.firstName} {parcel.recipient?.lastName}
+              </Text>
+              <Text style={styles.contactPhone}>
+                📞 {parcel.recipient?.phone}
+              </Text>
+              <Text style={styles.contactAddress}>
+                📍 {parcel.recipient?.address?.street},{" "}
+                {parcel.recipient?.address?.postalCode}{" "}
+                {parcel.recipient?.address?.city}
+              </Text>
+            </View>
+          </View>
+        )}
 
-      {/* Bouton valider livraison */}
+        {/* Info OTP */}
+        <View style={styles.infoCard}>
+          <Text style={styles.infoIcon}>💬</Text>
+          <Text style={styles.infoText}>
+            Un code à 4 chiffres a été envoyé par SMS au destinataire.
+            Demande-lui à la livraison.
+          </Text>
+        </View>
+
+        {/* Pause / Reprendre */}
+        {status === "active" ? (
+          <TouchableOpacity style={styles.pauseBtn} onPress={handlePause}>
+            <Text style={styles.actionIcon}>⏸️</Text>
+            <View style={styles.actionInfo}>
+              <Text style={styles.actionTitle}>Mettre en pause</Text>
+              <Text style={styles.actionDesc}>
+                Position masquée, tracé conservé
+              </Text>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.resumeBtn} onPress={handleResume}>
+            <Text style={styles.actionIcon}>▶️</Text>
+            <View style={styles.actionInfo}>
+              <Text style={[styles.actionTitle, { color: COLORS.success }]}>
+                Reprendre
+              </Text>
+              <Text style={styles.actionDesc}>Le tracking GPS reprend</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Info tracking */}
+        <View style={styles.trackingInfo}>
+          <Text style={styles.trackingInfoText}>
+            📍 Position partagée en temps réel avec le client
+          </Text>
+        </View>
+      </ScrollView>
+
+      {/* Bouton valider */}
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.validateBtn, loading && { opacity: 0.7 }]}
-          onPress={handleValidate}
-          disabled={loading}
+          style={styles.validateBtn}
+          onPress={() =>
+            router.push({
+              pathname: "/(livreur)/validate",
+              params: { parcelId, deliveryId, trackId },
+            })
+          }
         >
           <Text style={styles.validateBtnText}>
             🔢 Saisir le code de livraison
@@ -255,34 +289,42 @@ export default function Delivering() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.grayLight, paddingTop: 60 },
+  container: { flex: 1, backgroundColor: COLORS.grayLight },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   startingText: { fontSize: 14, color: COLORS.textSecond, marginTop: 12 },
-  statusBar: {
+  content: { padding: 20, paddingTop: 60, paddingBottom: 100 },
+  header: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: 8,
+    marginBottom: 12,
+  },
+  title: { fontSize: 22, fontWeight: "bold", color: COLORS.text },
+  statusBadge: {
     backgroundColor: "#EAF3DE",
-    margin: 16,
-    padding: 14,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 99,
     borderWidth: 1,
     borderColor: "#C0DD97",
   },
-  statusBarPaused: { backgroundColor: "#FAEEDA", borderColor: "#FAC775" },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.success,
+  statusBadgePaused: { backgroundColor: "#FAEEDA", borderColor: "#FAC775" },
+  statusText: { fontSize: 13, fontWeight: "600", color: COLORS.text },
+  warningCard: {
+    backgroundColor: "#FFF8E6",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: COLORS.warning,
   },
-  statusText: { fontSize: 15, fontWeight: "600", color: COLORS.text },
-  statsGrid: {
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 16,
-    marginBottom: 16,
+  warningText: {
+    fontSize: 12,
+    color: "#633806",
+    textAlign: "center",
+    lineHeight: 18,
   },
+  statsGrid: { flexDirection: "row", gap: 10, marginBottom: 14 },
   statCard: {
     flex: 1,
     backgroundColor: COLORS.white,
@@ -293,73 +335,86 @@ const styles = StyleSheet.create({
     borderColor: COLORS.grayBorder,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "700",
     color: COLORS.primary,
     marginBottom: 4,
   },
   statLabel: { fontSize: 11, color: COLORS.textSecond },
-  codeCard: {
+  card: {
     backgroundColor: COLORS.white,
     borderRadius: 16,
     padding: 16,
-    marginHorizontal: 16,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.grayBorder,
   },
-  codeTitle: {
+  cardTitle: {
     fontSize: 14,
     fontWeight: "600",
     color: COLORS.text,
-    marginBottom: 6,
+    marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  codeDesc: { fontSize: 13, color: COLORS.textSecond, lineHeight: 18 },
+  contactBlock: { paddingVertical: 4, gap: 3 },
+  contactRole: {
+    fontSize: 11,
+    color: COLORS.textSecond,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  contactName: { fontSize: 15, fontWeight: "600", color: COLORS.text },
+  contactPhone: { fontSize: 13, color: COLORS.primary },
+  contactAddress: { fontSize: 12, color: COLORS.textSecond },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.grayBorder,
+    marginVertical: 10,
+  },
+  infoCard: {
+    flexDirection: "row",
+    gap: 10,
+    backgroundColor: "#EBF4FF",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#B8D4F0",
+  },
+  infoIcon: { fontSize: 16, marginTop: 1 },
+  infoText: { flex: 1, fontSize: 12, color: COLORS.primary, lineHeight: 17 },
   pauseBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     backgroundColor: COLORS.white,
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 14,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1.5,
     borderColor: COLORS.warning,
   },
-  pauseBtnIcon: { fontSize: 28 },
-  pauseBtnTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.text,
-    marginBottom: 2,
-  },
-  pauseBtnDesc: { fontSize: 12, color: COLORS.textSecond },
   resumeBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     backgroundColor: "#EAF3DE",
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 14,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1.5,
     borderColor: COLORS.success,
   },
-  resumeBtnIcon: { fontSize: 28 },
-  resumeBtnTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: COLORS.success,
-    marginBottom: 2,
-  },
-  resumeBtnDesc: { fontSize: 12, color: COLORS.textSecond },
+  actionIcon: { fontSize: 24, flexShrink: 0 },
+  actionInfo: { flex: 1 },
+  actionTitle: { fontSize: 14, fontWeight: "600", color: COLORS.text },
+  actionDesc: { fontSize: 12, color: COLORS.textSecond, marginTop: 2 },
   trackingInfo: {
     backgroundColor: "#EBF4FF",
-    borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 16,
+    borderRadius: 10,
+    padding: 10,
     borderWidth: 1,
     borderColor: "#B8D4F0",
   },

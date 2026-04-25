@@ -47,7 +47,12 @@ const calculateDistance = async (pickupAddress, deliveryAddress) => {
 
   const meters = response.data.routes[0].summary.distance;
   const km = Math.round((meters / 1000) * 10) / 10;
-  return km;
+
+  return {
+    km,
+    pickupCoords: { lat: pickup.lat, lng: pickup.lng },
+    deliveryCoords: { lat: delivery.lat, lng: delivery.lng },
+  };
 };
 
 module.exports = { calculateDistance };

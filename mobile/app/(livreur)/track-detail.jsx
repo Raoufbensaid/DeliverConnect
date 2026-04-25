@@ -27,7 +27,10 @@ export default function TrackDetail() {
       try {
         console.log("deliveryId reçu :", deliveryId); // ← ajoute ça
         const res = await api.get(`/tracks/delivery/${deliveryId}`);
-        setTrack(res.data.track);
+        setTrack({
+          ...res.data.track,
+          timestamps: res.data.timestamps,
+        });
       } catch (err) {
         console.error(err);
       } finally {

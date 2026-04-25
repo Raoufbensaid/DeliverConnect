@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import MapView, { Marker, Polyline } from "react-native-maps";
 import {
   View,
   Text,
@@ -7,6 +8,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
+  Dimensions,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { COLORS } from "../../constants/colors";
@@ -18,6 +21,7 @@ export default function Mission() {
   const [parcel, setParcel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     const fetchParcel = async () => {
@@ -79,10 +83,13 @@ export default function Mission() {
         <Text style={styles.title}>Détail de la mission</Text>
 
         {/* Trajet */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>📍 Trajet</Text>
+        {/* Trajet */}
+        <TouchableOpacity style={styles.card} onPress={() => setShowMap(true)}>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>📍 Trajet</Text>
+            <Text style={styles.cardTitleAction}>Voir la carte →</Text>
+          </View>
 
-          {/* Départ */}
           <View style={styles.stopRow}>
             <View style={styles.stopLeft}>
               <View style={styles.dotBlue} />
@@ -100,19 +107,21 @@ export default function Mission() {
             </View>
           </View>
 
-          {/* Distance au milieu */}
           <View style={styles.stopRow}>
             <View style={styles.stopLeft}>
               <View style={styles.routeLineOnly} />
             </View>
             <View style={styles.distanceMid}>
               <Text style={styles.distanceMidText}>
-                📍 {parcel?.distanceKm} km
+                📍{" "}
+                {parcel?.distanceKm > 0
+                  ? `${parcel.distanceKm} km`
+                  : "Non disponible"}{" "}
+                · Appuie pour voir la carte
               </Text>
             </View>
           </View>
 
-          {/* Arrivée */}
           <View style={styles.stopRow}>
             <View style={styles.stopLeft}>
               <View style={styles.routeLine} />
@@ -129,7 +138,94 @@ export default function Mission() {
               </Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
+
+        {/* Modal Carte */}
+        <Modal
+          visible={showMap}
+          animationType="slide"
+          onRequestClose={() => setShowMap(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Itinéraire</Text>
+              <TouchableOpacity onPress={() => setShowMap(false)}>
+                <Text style={styles.modalClose}>✕ Fermer</Text>
+              </TouchableOpacity>
+            </View>
+
+            <MapView
+              style={styles.modalMap}
+              initialRegion={{
+                latitude: parcel?.sender?.address?.lat || 48.8566,
+                longitude: parcel?.sender?.address?.lng || 2.3522,
+                latitudeDelta: 0.5,
+                longitudeDelta: 0.5,
+              }}
+            >
+              {/* Marqueur départ */}
+              <Marker
+                coordinate={{
+                  latitude: parcel?.sender?.address?.lat || 48.8566,
+                  longitude: parcel?.sender?.address?.lng || 2.3522,
+                }}
+                title="Départ"
+                description={`${parcel?.sender?.address?.street}, ${parcel?.sender?.address?.city}`}
+                pinColor="blue"
+              />
+
+              {/* Marqueur arrivée */}
+              <Marker
+                coordinate={{
+                  latitude: parcel?.recipient?.address?.lat || 45.764,
+                  longitude: parcel?.recipient?.address?.lng || 4.8357,
+                }}
+                title="Arrivée"
+                description={`${parcel?.recipient?.address?.street}, ${parcel?.recipient?.address?.city}`}
+                pinColor="green"
+              />
+
+              {/* Ligne entre les deux points */}
+              <Polyline
+                coordinates={[
+                  {
+                    latitude: parcel?.sender?.address?.lat || 48.8566,
+                    longitude: parcel?.sender?.address?.lng || 2.3522,
+                  },
+                  {
+                    latitude: parcel?.recipient?.address?.lat || 45.764,
+                    longitude: parcel?.recipient?.address?.lng || 4.8357,
+                  },
+                ]}
+                strokeColor={COLORS.primary}
+                strokeWidth={3}
+                lineDashPattern={[10, 5]}
+              />
+            </MapView>
+
+            {/* Infos en bas */}
+            <View style={styles.modalFooter}>
+              <View style={styles.modalInfo}>
+                <Text style={styles.modalInfoLabel}>Distance</Text>
+                <Text style={styles.modalInfoValue}>
+                  {parcel?.distanceKm} km
+                </Text>
+              </View>
+              <View style={styles.modalInfo}>
+                <Text style={styles.modalInfoLabel}>De</Text>
+                <Text style={styles.modalInfoValue}>
+                  {parcel?.sender?.address?.city}
+                </Text>
+              </View>
+              <View style={styles.modalInfo}>
+                <Text style={styles.modalInfoLabel}>À</Text>
+                <Text style={styles.modalInfoValue}>
+                  {parcel?.recipient?.address?.city}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Contacts */}
         <View style={styles.card}>
@@ -167,13 +263,13 @@ export default function Mission() {
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Fragile</Text>
             <Text style={styles.infoValue}>
-              {parcel?.fragile ? "⚠️ Oui" : "Non"}
+              {parcel?.fragile === true ? "⚠️ Oui" : "Non"}
             </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Urgent</Text>
             <Text style={styles.infoValue}>
-              {parcel?.urgent ? "⚡  Oui" : "Non"}
+              {parcel?.urgent === true ? "⚡ Oui" : "Non"}
             </Text>
           </View>
           {parcel?.description && (
@@ -360,4 +456,35 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   distanceMidText: { fontSize: 12, color: COLORS.primary, fontWeight: "600" },
+
+  cardTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  cardTitleAction: { fontSize: 12, color: COLORS.primary },
+  modalContainer: { flex: 1, backgroundColor: COLORS.white },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    paddingTop: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayBorder,
+  },
+  modalTitle: { fontSize: 20, fontWeight: "bold", color: COLORS.text },
+  modalClose: { fontSize: 14, color: COLORS.danger },
+  modalMap: { flex: 1 },
+  modalFooter: {
+    flexDirection: "row",
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.grayBorder,
+    backgroundColor: COLORS.white,
+  },
+  modalInfo: { flex: 1, alignItems: "center" },
+  modalInfoLabel: { fontSize: 11, color: COLORS.textSecond, marginBottom: 4 },
+  modalInfoValue: { fontSize: 14, fontWeight: "600", color: COLORS.text },
 });
