@@ -57,4 +57,28 @@ router.patch(
   },
 );
 
+router.put("/profile", protect, async (req, res) => {
+  try {
+    const { firstName, lastName, phone } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { firstName, lastName, phone },
+      { new: true, select: "-password" },
+    );
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post("/push-token", protect, async (req, res) => {
+  try {
+    const { token } = req.body;
+    await User.findByIdAndUpdate(req.user._id, { expoPushToken: token });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

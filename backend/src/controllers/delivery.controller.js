@@ -85,6 +85,22 @@ const pickupParcel = async (req, res) => {
     parcel.status = "picked_up";
     await parcel.save();
 
+    const {
+      sendPushNotification,
+    } = require("../services/notification.service");
+    const User = require("../models/User.model");
+
+    // Notifier le client que sa livraison est en cours
+    const client = await User.findById(parcel.clientId);
+    if (client?.expoPushToken) {
+      await sendPushNotification(
+        client.expoPushToken,
+        "📦 Colis pris en charge !",
+        `Votre colis est en route. Code de livraison envoyé par SMS.`,
+        { parcelId: parcel._id },
+      );
+    }
+
     // Envoyer le code OTP par SMS au destinataire
     const recipientPhone = formatPhoneNumber(parcel.recipient.phone);
     const smsMessage = `DeliverConnect code: ${validationCode}`;
@@ -144,6 +160,17 @@ const validateDelivery = async (req, res) => {
     delivery.status = "delivered";
     delivery.deliveredAt = new Date();
     await delivery.save();
+
+    // Notifier le client que la livraison est validée
+    const client = await User.findById(delivery.clientId);
+    if (client?.expoPushToken) {
+      await sendPushNotification(
+        client.expoPushToken,
+        "✅ Colis livré !",
+        "Votre colis a bien été remis au destinataire.",
+        { parcelId },
+      );
+    }
 
     // Mettre à jour le colis
     await Parcel.findByIdAndUpdate(parcelId, { status: "delivered" });

@@ -83,9 +83,20 @@ export default function ClientHome() {
             Que voulez-vous envoyer aujourd'hui ?
           </Text>
         </View>
-        <TouchableOpacity onPress={handleLogout}>
-          <Text style={styles.logoutBtn}>Quitter</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            onPress={() => router.push("/(client)/profile")}
+            style={styles.avatarBtn}
+          >
+            <Text style={styles.avatarBtnText}>
+              {user?.firstName?.[0]}
+              {user?.lastName?.[0]}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout}>
+            <Text style={styles.logoutBtn}>Quitter</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Bouton principal */}
@@ -175,6 +186,19 @@ export default function ClientHome() {
 }
 
 const styles = StyleSheet.create({
+  headerRight: {
+    alignItems: "flex-end",
+    gap: 6,
+  },
+  avatarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarBtnText: { fontSize: 13, fontWeight: "700", color: COLORS.white },
   container: {
     flex: 1,
     backgroundColor: COLORS.grayLight,

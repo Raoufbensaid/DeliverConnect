@@ -253,6 +253,22 @@ const assignParcel = async (req, res) => {
     parcel.delivererId = req.user._id;
     await parcel.save();
 
+    const {
+      sendPushNotification,
+    } = require("../services/notification.service");
+    const User = require("../models/User.model");
+
+    // Notifier le client qu'un livreur a accepté
+    const client = await User.findById(parcel.clientId);
+    if (client?.expoPushToken) {
+      await sendPushNotification(
+        client.expoPushToken,
+        "🚗 Livreur trouvé !",
+        "Un livreur a accepté votre mission et va récupérer votre colis.",
+        { parcelId: parcel._id },
+      );
+    }
+
     res.status(200).json({
       success: true,
       message: "Mission acceptée avec succès",
