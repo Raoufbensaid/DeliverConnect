@@ -6,6 +6,7 @@ const User = require("../models/User.model");
 const { uploadToCloudinary } = require("../services/cloudinary.service");
 const { transferToDeliverer } = require("../services/stripe.service");
 const { sendSMS } = require("../services/sms.service");
+const { sendPushNotification } = require("../services/notification.service");
 
 // Générer un code OTP à 4 chiffres
 const generateOTP = () => {

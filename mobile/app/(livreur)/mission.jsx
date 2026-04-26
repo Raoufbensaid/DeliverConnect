@@ -154,56 +154,59 @@ export default function Mission() {
               </TouchableOpacity>
             </View>
 
-            <MapView
-              style={styles.modalMap}
-              initialRegion={{
-                latitude: parcel?.sender?.address?.lat || 48.8566,
-                longitude: parcel?.sender?.address?.lng || 2.3522,
-                latitudeDelta: 0.5,
-                longitudeDelta: 0.5,
-              }}
-            >
-              {/* Marqueur départ */}
-              <Marker
-                coordinate={{
-                  latitude: parcel?.sender?.address?.lat || 48.8566,
-                  longitude: parcel?.sender?.address?.lng || 2.3522,
+            {parcel?.sender?.address?.lat && parcel?.recipient?.address?.lat ? (
+              <MapView
+                style={styles.modalMap}
+                initialRegion={{
+                  latitude: parcel.sender.address.lat,
+                  longitude: parcel.sender.address.lng,
+                  latitudeDelta: 0.5,
+                  longitudeDelta: 0.5,
                 }}
-                title="Départ"
-                description={`${parcel?.sender?.address?.street}, ${parcel?.sender?.address?.city}`}
-                pinColor="blue"
-              />
+              >
+                <Marker
+                  coordinate={{
+                    latitude: parcel.sender.address.lat,
+                    longitude: parcel.sender.address.lng,
+                  }}
+                  title="Départ"
+                  description={`${parcel.sender.address.street}, ${parcel.sender.address.city}`}
+                  pinColor="blue"
+                />
+                <Marker
+                  coordinate={{
+                    latitude: parcel.recipient.address.lat,
+                    longitude: parcel.recipient.address.lng,
+                  }}
+                  title="Arrivée"
+                  description={`${parcel.recipient.address.street}, ${parcel.recipient.address.city}`}
+                  pinColor="green"
+                />
+                <Polyline
+                  coordinates={[
+                    {
+                      latitude: parcel.sender.address.lat,
+                      longitude: parcel.sender.address.lng,
+                    },
+                    {
+                      latitude: parcel.recipient.address.lat,
+                      longitude: parcel.recipient.address.lng,
+                    },
+                  ]}
+                  strokeColor={COLORS.primary}
+                  strokeWidth={3}
+                  lineDashPattern={[10, 5]}
+                />
+              </MapView>
+            ) : (
+              <View style={styles.centered}>
+                <Text style={{ color: COLORS.textSecond, fontSize: 14 }}>
+                  ⚠️ Coordonnées GPS non disponibles pour cette annonce.{"\n"}
+                  Crée une nouvelle annonce pour voir la carte.
+                </Text>
+              </View>
+            )}
 
-              {/* Marqueur arrivée */}
-              <Marker
-                coordinate={{
-                  latitude: parcel?.recipient?.address?.lat || 45.764,
-                  longitude: parcel?.recipient?.address?.lng || 4.8357,
-                }}
-                title="Arrivée"
-                description={`${parcel?.recipient?.address?.street}, ${parcel?.recipient?.address?.city}`}
-                pinColor="green"
-              />
-
-              {/* Ligne entre les deux points */}
-              <Polyline
-                coordinates={[
-                  {
-                    latitude: parcel?.sender?.address?.lat || 48.8566,
-                    longitude: parcel?.sender?.address?.lng || 2.3522,
-                  },
-                  {
-                    latitude: parcel?.recipient?.address?.lat || 45.764,
-                    longitude: parcel?.recipient?.address?.lng || 4.8357,
-                  },
-                ]}
-                strokeColor={COLORS.primary}
-                strokeWidth={3}
-                lineDashPattern={[10, 5]}
-              />
-            </MapView>
-
-            {/* Infos en bas */}
             <View style={styles.modalFooter}>
               <View style={styles.modalInfo}>
                 <Text style={styles.modalInfoLabel}>Distance</Text>

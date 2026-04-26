@@ -113,6 +113,30 @@ export default function Tracking() {
     );
   }
 
+  // Vérification que les coordonnées existent
+  if (!senderCoords && !livreurPos) {
+    return (
+      <View style={styles.centered}>
+        <Text
+          style={{
+            fontSize: 16,
+            color: COLORS.text,
+            textAlign: "center",
+            padding: 20,
+          }}
+        >
+          📍 En attente de la position du livreur...
+        </Text>
+        <TouchableOpacity
+          style={{ marginTop: 20, padding: 14 }}
+          onPress={() => router.back()}
+        >
+          <Text style={{ color: COLORS.primary }}>← Retour</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   const senderCoords = parcel?.sender?.address?.lat
     ? {
         latitude: parcel.sender.address.lat,
