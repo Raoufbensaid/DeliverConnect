@@ -12,6 +12,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { COLORS } from "../../../constants/colors";
 import { getUser } from "../../../store/auth";
+import AddressInput from "../../../components/AddressInput";
 
 export default function Step2() {
   const router = useRouter();
@@ -114,30 +115,27 @@ export default function Step2() {
         {/* Adresse */}
         <Text style={styles.sectionLabel}>Adresse d'enlèvement</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Rue et numéro"
-          placeholderTextColor={COLORS.textSecond}
-          value={street}
-          onChangeText={setStreet}
+        <AddressInput
+          placeholder="Rechercher l'adresse d'enlèvement..."
+          onAddressSelect={(addr) => {
+            setStreet(addr.street);
+            setCity(addr.city);
+            setPostalCode(addr.postalCode);
+          }}
         />
-        <View style={styles.row}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Code postal"
-            placeholderTextColor={COLORS.textSecond}
-            value={postalCode}
-            onChangeText={setPostalCode}
-            keyboardType="numeric"
-          />
-          <TextInput
-            style={[styles.input, { flex: 2 }]}
-            placeholder="Ville"
-            placeholderTextColor={COLORS.textSecond}
-            value={city}
-            onChangeText={setCity}
-          />
-        </View>
+
+        {/* Affichage de l'adresse sélectionnée */}
+        {street ? (
+          <View style={styles.selectedAddress}>
+            <Text style={styles.selectedAddressIcon}>✅</Text>
+            <View>
+              <Text style={styles.selectedAddressText}>{street}</Text>
+              <Text style={styles.selectedAddressSub}>
+                {postalCode} {city}
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         <TouchableOpacity style={styles.nextBtn} onPress={handleNext}>
           <Text style={styles.nextBtnText}>Continuer →</Text>
@@ -148,6 +146,20 @@ export default function Step2() {
 }
 
 const styles = StyleSheet.create({
+  selectedAddress: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: "#EAF3DE",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#C0DD97",
+  },
+  selectedAddressIcon: { fontSize: 16 },
+  selectedAddressText: { fontSize: 13, fontWeight: "500", color: COLORS.text },
+  selectedAddressSub: { fontSize: 11, color: COLORS.textSecond, marginTop: 2 },
   container: {
     flexGrow: 1,
     padding: 24,

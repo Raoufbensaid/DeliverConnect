@@ -67,6 +67,23 @@ const NAV_ITEMS = [
     ),
   },
   {
+    id: "announcements",
+    label: "Annonces",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        width="16"
+        height="16"
+      >
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+      </svg>
+    ),
+  },
+  {
     id: "users",
     label: "Utilisateurs",
     icon: (
@@ -143,7 +160,6 @@ export default function App() {
   const [revenue, setRevenue] = useState([]);
   const [topDeliverers, setTopDeliverers] = useState([]);
   const [parcelsBySize, setParcelsBySize] = useState([]);
-  const [_deliveryStats, setDeliveryStats] = useState([]);
   const [users, setUsers] = useState([]);
   const [parcels, setParcels] = useState([]);
   const [distanceStats, setDistanceStats] = useState(null);
@@ -175,13 +191,12 @@ export default function App() {
       setLoading(true);
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const [ov, rev, top, sizes, stats, usersRes, parcelsRes, distRes] =
+        const [ov, rev, top, sizes, usersRes, parcelsRes, distRes] =
           await Promise.all([
             api.get("/analytics/overview", { headers }),
             api.get("/analytics/revenue", { headers }),
             api.get("/analytics/top-deliverers", { headers }),
             api.get("/analytics/parcels-by-size", { headers }),
-            api.get("/analytics/deliveries", { headers }),
             api.get("/users", { headers }),
             api.get("/users/parcels", { headers }),
             api.get("/analytics/distances", { headers }),
@@ -195,7 +210,6 @@ export default function App() {
             value: d.count,
           })),
         );
-        setDeliveryStats(stats.data.data);
         setUsers(usersRes.data.users);
         setParcels(parcelsRes.data.parcels);
         setDistanceStats(distRes.data.data);
@@ -269,9 +283,11 @@ export default function App() {
       ]
     : [];
 
+  // ================================
+  // Vue d'ensemble
+  // ================================
   const renderOverview = () => (
     <>
-      {/* KPIs */}
       <div className="kpi-grid">
         {kpis.map((k, i) => (
           <div
@@ -286,119 +302,6 @@ export default function App() {
             <div className="kpi-sub">{k.sub}</div>
           </div>
         ))}
-      </div>
-
-      {/* Revenus + Analytique */}
-      <div className="charts-row">
-        <div className="chart-card">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "14px",
-            }}
-          >
-            <div className="chart-title" style={{ marginBottom: 0 }}>
-              Revenus — 30 jours
-            </div>
-            <span
-              onClick={() => setPage("revenue")}
-              style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
-            >
-              Voir tout →
-            </span>
-          </div>
-          {revenue.length > 0 ? (
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={revenue}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#1e2535"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="_id"
-                  tick={{ fill: "#4a5568", fontSize: 11 }}
-                  tickFormatter={(v) => v.slice(5)}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "#4a5568", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip {...tooltipStyle} formatter={(v) => `${v}€`} />
-                <Line
-                  type="monotone"
-                  dataKey="totalRevenue"
-                  stroke="#63b3ed"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Revenus"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="totalCommission"
-                  stroke="#48bb78"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Commission"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="chart-empty">Pas encore de données</div>
-          )}
-        </div>
-
-        <div className="chart-card">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "14px",
-            }}
-          >
-            <div className="chart-title" style={{ marginBottom: 0 }}>
-              Colis par taille
-            </div>
-            <span
-              onClick={() => setPage("analytics")}
-              style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
-            >
-              Voir tout →
-            </span>
-          </div>
-          {parcelsBySize.length > 0 ? (
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart margin={{ top: 20, right: 20, bottom: 0, left: 20 }}>
-                <Pie
-                  data={parcelsBySize}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={65}
-                  innerRadius={35}
-                  label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
-                  }
-                  labelLine={{ stroke: "#1e2535" }}
-                >
-                  {parcelsBySize.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip {...tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="chart-empty">Pas encore de données</div>
-          )}
-        </div>
       </div>
 
       {/* Dernières livraisons */}
@@ -458,7 +361,60 @@ export default function App() {
         ))}
       </div>
 
-      {/* Derniers utilisateurs */}
+      {/* Dernières annonces */}
+      <div className="table-card">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "14px",
+          }}
+        >
+          <div className="chart-title" style={{ marginBottom: 0 }}>
+            Dernières annonces
+          </div>
+          <span
+            onClick={() => setPage("announcements")}
+            style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
+          >
+            Voir tout →
+          </span>
+        </div>
+        <div
+          className="table-row table-head"
+          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr" }}
+        >
+          <div>Trajet</div>
+          <div>Taille</div>
+          <div>Statut</div>
+          <div>Prix</div>
+        </div>
+        {parcels
+          .filter((p) => p.status === "pending")
+          .slice(0, 5)
+          .map((p, i) => (
+            <div
+              key={i}
+              className="table-row"
+              style={{
+                gridTemplateColumns: "2fr 1fr 1fr 1fr",
+                borderBottom: i === 4 ? "none" : "1px solid #1e2535",
+              }}
+            >
+              <div style={{ color: "#e2e8f0" }}>
+                {p.sender?.address?.city} → {p.recipient?.address?.city}
+              </div>
+              <div style={{ color: "#718096" }}>{p.size?.toUpperCase()}</div>
+              <div>
+                <span className="pill pill-pending">En attente</span>
+              </div>
+              <div style={{ color: "#48bb78" }}>{p.price}€</div>
+            </div>
+          ))}
+      </div>
+
+      {/* Derniers inscrits */}
       <div className="table-card">
         <div
           style={{
@@ -540,68 +496,122 @@ export default function App() {
         ))}
       </div>
 
-      {/* Top livreurs */}
-      <div className="chart-card">
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "14px",
-          }}
-        >
-          <div className="chart-title" style={{ marginBottom: 0 }}>
-            Top livreurs
-          </div>
-          <span
-            onClick={() => setPage("analytics")}
-            style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
+      <div className="charts-row">
+        <div className="chart-card">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "14px",
+            }}
           >
-            Voir tout →
-          </span>
-        </div>
-        {topDeliverers.length > 0 ? (
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart
-              data={topDeliverers.map((d) => ({
-                ...d,
-                shortName: d.name.split(" ")[0],
-              }))}
-              barSize={28}
+            <div className="chart-title" style={{ marginBottom: 0 }}>
+              Revenus — 30 jours
+            </div>
+            <span
+              onClick={() => setPage("revenue")}
+              style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
             >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#1e2535"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="shortName"
-                tick={{ fill: "#4a5568", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: "#4a5568", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                allowDecimals={false}
-              />
-              <Tooltip {...tooltipStyle} />
-              <Bar
-                dataKey="totalDeliveries"
-                fill="#2a5298"
-                radius={[4, 4, 0, 0]}
-                name="Livraisons"
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="chart-empty">Pas encore de données</div>
-        )}
+              Voir tout →
+            </span>
+          </div>
+          {revenue.length > 0 ? (
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={revenue}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="#1e2535"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="_id"
+                  tick={{ fill: "#4a5568", fontSize: 11 }}
+                  tickFormatter={(v) => v.slice(5)}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: "#4a5568", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip {...tooltipStyle} formatter={(v) => `${v}€`} />
+                <Line
+                  type="monotone"
+                  dataKey="totalRevenue"
+                  stroke="#63b3ed"
+                  strokeWidth={2}
+                  dot={false}
+                  name="Revenus"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="totalCommission"
+                  stroke="#48bb78"
+                  strokeWidth={2}
+                  dot={false}
+                  name="Commission"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="chart-empty">Pas encore de données</div>
+          )}
+        </div>
+        <div className="chart-card">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "14px",
+            }}
+          >
+            <div className="chart-title" style={{ marginBottom: 0 }}>
+              Colis par taille
+            </div>
+            <span
+              onClick={() => setPage("analytics")}
+              style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
+            >
+              Voir tout →
+            </span>
+          </div>
+          {parcelsBySize.length > 0 ? (
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart margin={{ top: 20, right: 20, bottom: 0, left: 20 }}>
+                <Pie
+                  data={parcelsBySize}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={65}
+                  innerRadius={35}
+                  label={({ name, percent }) =>
+                    `${name} ${(percent * 100).toFixed(0)}%`
+                  }
+                  labelLine={{ stroke: "#1e2535" }}
+                >
+                  {parcelsBySize.map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip {...tooltipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="chart-empty">Pas encore de données</div>
+          )}
+        </div>
       </div>
     </>
   );
 
+  // ================================
+  // Livraisons détaillées
+  // ================================
   const renderDeliveries = () => {
     const cancelDelivery = async (id) => {
       if (
@@ -628,40 +638,48 @@ export default function App() {
         <div className="chart-title">
           Toutes les livraisons ({parcels.length})
         </div>
-        <div
-          className="table-row table-head"
-          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr" }}
-        >
-          <div>Expéditeur</div>
-          <div>Destination</div>
-          <div>Statut</div>
-          <div>Prix</div>
-          <div>Action</div>
-        </div>
-        {parcels.length > 0 ? (
-          parcels.map((p, i) => (
+        {parcels.map((p, i) => (
+          <div
+            key={i}
+            style={{
+              background: "#1a2235",
+              borderRadius: "12px",
+              padding: "16px",
+              marginBottom: "12px",
+              border: "1px solid #1e2535",
+            }}
+          >
+            {/* Header carte */}
             <div
-              key={i}
-              className="table-row"
               style={{
-                gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
-                borderBottom:
-                  i === parcels.length - 1 ? "none" : "1px solid #1e2535",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "12px",
               }}
             >
-              <div style={{ color: "#e2e8f0" }}>
-                {p.sender?.firstName} {p.sender?.lastName}
-              </div>
-              <div style={{ color: "#718096" }}>
-                {p.recipient?.address?.city || "—"}
-              </div>
-              <div>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
                 <span className={`pill pill-${p.status}`}>
                   {statusLabel[p.status]}
                 </span>
+                <span style={{ fontSize: "11px", color: "#4a5568" }}>
+                  {new Date(p.createdAt).toLocaleDateString("fr-FR")}
+                </span>
               </div>
-              <div style={{ color: "#48bb78" }}>{p.price}€</div>
-              <div>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
+                <span
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: "700",
+                    color: "#48bb78",
+                  }}
+                >
+                  {p.price}€
+                </span>
                 {["assigned", "picked_up"].includes(p.status) && (
                   <button
                     onClick={() => cancelDelivery(p._id)}
@@ -680,14 +698,562 @@ export default function App() {
                 )}
               </div>
             </div>
-          ))
+
+            {/* Trajet */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "12px",
+                marginBottom: "12px",
+              }}
+            >
+              <div
+                style={{
+                  background: "#0f1117",
+                  borderRadius: "8px",
+                  padding: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "10px",
+                    color: "#4a5568",
+                    textTransform: "uppercase",
+                    letterSpacing: ".05em",
+                    marginBottom: "4px",
+                  }}
+                >
+                  🔵 Expéditeur
+                </div>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    color: "#e2e8f0",
+                  }}
+                >
+                  {p.sender?.firstName} {p.sender?.lastName}
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#718096",
+                    marginTop: "2px",
+                  }}
+                >
+                  📞 {p.sender?.phone}
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#718096",
+                    marginTop: "2px",
+                  }}
+                >
+                  📍 {p.sender?.address?.street},{" "}
+                  {p.sender?.address?.postalCode} {p.sender?.address?.city}
+                </div>
+              </div>
+              <div
+                style={{
+                  background: "#0f1117",
+                  borderRadius: "8px",
+                  padding: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "10px",
+                    color: "#4a5568",
+                    textTransform: "uppercase",
+                    letterSpacing: ".05em",
+                    marginBottom: "4px",
+                  }}
+                >
+                  🟢 Destinataire
+                </div>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    color: "#e2e8f0",
+                  }}
+                >
+                  {p.recipient?.firstName} {p.recipient?.lastName}
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#718096",
+                    marginTop: "2px",
+                  }}
+                >
+                  📞 {p.recipient?.phone}
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#718096",
+                    marginTop: "2px",
+                  }}
+                >
+                  📍 {p.recipient?.address?.street},{" "}
+                  {p.recipient?.address?.postalCode}{" "}
+                  {p.recipient?.address?.city}
+                </div>
+              </div>
+            </div>
+
+            {/* Livreur */}
+            {p.delivererId && (
+              <div
+                style={{
+                  background: "#0f1117",
+                  borderRadius: "8px",
+                  padding: "10px",
+                  marginBottom: "12px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "10px",
+                    color: "#4a5568",
+                    textTransform: "uppercase",
+                    letterSpacing: ".05em",
+                    marginBottom: "4px",
+                  }}
+                >
+                  🚗 Livreur
+                </div>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    color: "#e2e8f0",
+                  }}
+                >
+                  {p.delivererId?.firstName} {p.delivererId?.lastName}
+                </div>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    color: "#718096",
+                    marginTop: "2px",
+                  }}
+                >
+                  📞 {p.delivererId?.phone}
+                </div>
+              </div>
+            )}
+
+            {/* Stats financières */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(4,1fr)",
+                gap: "8px",
+              }}
+            >
+              {[
+                { label: "Taille", value: p.size?.toUpperCase() },
+                {
+                  label: "Distance",
+                  value: p.distanceKm ? `${p.distanceKm} km` : "—",
+                },
+                { label: "Prix total", value: `${p.price}€`, color: "#63b3ed" },
+                {
+                  label: "Commission",
+                  value: `${p.commission || Math.round(p.price * 0.2 * 100) / 100}€`,
+                  color: "#f6ad55",
+                },
+              ].map((s, j) => (
+                <div
+                  key={j}
+                  style={{
+                    background: "#0f1117",
+                    borderRadius: "8px",
+                    padding: "8px",
+                    textAlign: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      color: "#4a5568",
+                      marginBottom: "3px",
+                    }}
+                  >
+                    {s.label}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      color: s.color || "#e2e8f0",
+                    }}
+                  >
+                    {s.value}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Poids et options */}
+            <div
+              style={{
+                display: "flex",
+                gap: "6px",
+                marginTop: "8px",
+                flexWrap: "wrap",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "10px",
+                  padding: "2px 8px",
+                  borderRadius: "99px",
+                  background: "#1e2535",
+                  color: "#a0aec0",
+                }}
+              >
+                ⚖️ {p.weight} kg
+              </span>
+              {p.fragile && (
+                <span
+                  style={{
+                    fontSize: "10px",
+                    padding: "2px 8px",
+                    borderRadius: "99px",
+                    background: "#412402",
+                    color: "#FAC775",
+                  }}
+                >
+                  ⚠️ Fragile
+                </span>
+              )}
+              {p.urgent && (
+                <span
+                  style={{
+                    fontSize: "10px",
+                    padding: "2px 8px",
+                    borderRadius: "99px",
+                    background: "#4A1B0C",
+                    color: "#F5C4B3",
+                  }}
+                >
+                  ⚡ Urgent
+                </span>
+              )}
+              {p.description && (
+                <span
+                  style={{
+                    fontSize: "10px",
+                    padding: "2px 8px",
+                    borderRadius: "99px",
+                    background: "#1e2535",
+                    color: "#a0aec0",
+                  }}
+                >
+                  💬 {p.description}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // ================================
+  // Annonces (pending uniquement)
+  // ================================
+  const renderAnnouncements = () => {
+    const pendingParcels = parcels.filter((p) => p.status === "pending");
+
+    const deleteParcel = async (id) => {
+      if (!window.confirm("Supprimer définitivement cette annonce ?")) return;
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+        await api.delete(`/users/parcels/${id}`, { headers });
+        setParcels((prev) => prev.filter((p) => p._id !== id));
+      } catch {
+        alert("Erreur lors de la suppression");
+      }
+    };
+
+    return (
+      <div className="table-card">
+        <div className="chart-title">
+          Annonces disponibles ({pendingParcels.length})
+        </div>
+        {pendingParcels.length === 0 ? (
+          <div className="chart-empty">Aucune annonce en attente</div>
         ) : (
-          <div className="chart-empty">Aucune livraison</div>
+          pendingParcels.map((p, i) => (
+            <div
+              key={i}
+              style={{
+                background: "#1a2235",
+                borderRadius: "12px",
+                padding: "16px",
+                marginBottom: "12px",
+                border: "1px solid #1e2535",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "12px",
+                }}
+              >
+                <div>
+                  <span
+                    style={{
+                      fontSize: "15px",
+                      fontWeight: "600",
+                      color: "#e2e8f0",
+                    }}
+                  >
+                    {p.sender?.address?.city} → {p.recipient?.address?.city}
+                  </span>
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      color: "#4a5568",
+                      marginTop: "2px",
+                    }}
+                  >
+                    Publié le{" "}
+                    {new Date(p.createdAt).toLocaleDateString("fr-FR")}
+                  </div>
+                </div>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                >
+                  <div style={{ textAlign: "right" }}>
+                    <div
+                      style={{
+                        fontSize: "20px",
+                        fontWeight: "800",
+                        color: "#48bb78",
+                      }}
+                    >
+                      {p.delivererAmount ||
+                        Math.round(p.price * 0.8 * 100) / 100}
+                      €
+                    </div>
+                    <div style={{ fontSize: "10px", color: "#4a5568" }}>
+                      pour le livreur
+                    </div>
+                  </div>
+                </div>
+                {/* Bouton supprimer */}
+                <button
+                  onClick={() => deleteParcel(p._id)}
+                  style={{
+                    padding: "5px 12px",
+                    background: "#2d0f0f",
+                    color: "#fc8181",
+                    border: "1px solid #4a1515",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    cursor: "pointer",
+                  }}
+                >
+                  🗑️ Supprimer
+                </button>
+              </div>
+              <div></div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px",
+                  marginBottom: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    background: "#0f1117",
+                    borderRadius: "8px",
+                    padding: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      color: "#4a5568",
+                      textTransform: "uppercase",
+                      letterSpacing: ".05em",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    🔵 Expéditeur
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      color: "#e2e8f0",
+                    }}
+                  >
+                    {p.sender?.firstName} {p.sender?.lastName}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#718096" }}>
+                    📞 {p.sender?.phone}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#718096" }}>
+                    📍 {p.sender?.address?.street}, {p.sender?.address?.city}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: "#0f1117",
+                    borderRadius: "8px",
+                    padding: "10px",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      color: "#4a5568",
+                      textTransform: "uppercase",
+                      letterSpacing: ".05em",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    🟢 Destinataire
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      color: "#e2e8f0",
+                    }}
+                  >
+                    {p.recipient?.firstName} {p.recipient?.lastName}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#718096" }}>
+                    📞 {p.recipient?.phone}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#718096" }}>
+                    📍 {p.recipient?.address?.street},{" "}
+                    {p.recipient?.address?.city}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(5,1fr)",
+                  gap: "6px",
+                }}
+              >
+                {[
+                  { label: "Taille", value: p.size?.toUpperCase() },
+                  { label: "Poids", value: `${p.weight} kg` },
+                  {
+                    label: "Distance",
+                    value: p.distanceKm ? `${p.distanceKm} km` : "—",
+                  },
+                  {
+                    label: "Prix total",
+                    value: `${p.price}€`,
+                    color: "#63b3ed",
+                  },
+                  {
+                    label: "Commission",
+                    value: `${p.commission || Math.round(p.price * 0.2 * 100) / 100}€`,
+                    color: "#f6ad55",
+                  },
+                ].map((s, j) => (
+                  <div
+                    key={j}
+                    style={{
+                      background: "#0f1117",
+                      borderRadius: "8px",
+                      padding: "8px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "#4a5568",
+                        marginBottom: "3px",
+                      }}
+                    >
+                      {s.label}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        color: s.color || "#e2e8f0",
+                      }}
+                    >
+                      {s.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
+                {p.fragile && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      padding: "2px 8px",
+                      borderRadius: "99px",
+                      background: "#412402",
+                      color: "#FAC775",
+                    }}
+                  >
+                    ⚠️ Fragile
+                  </span>
+                )}
+                {p.urgent && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      padding: "2px 8px",
+                      borderRadius: "99px",
+                      background: "#4A1B0C",
+                      color: "#F5C4B3",
+                    }}
+                  >
+                    ⚡ Urgent
+                  </span>
+                )}
+                {p.description && (
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      padding: "2px 8px",
+                      borderRadius: "99px",
+                      background: "#1e2535",
+                      color: "#a0aec0",
+                    }}
+                  >
+                    💬 {p.description}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))
         )}
       </div>
     );
   };
 
+  // ================================
+  // Utilisateurs
+  // ================================
   const renderUsers = () => (
     <div className="table-card">
       <div className="chart-title">Tous les utilisateurs ({users.length})</div>
@@ -700,79 +1266,77 @@ export default function App() {
         <div>Téléphone</div>
         <div>Inscrit le</div>
       </div>
-      {users.length > 0 ? (
-        users.map((u, i) => (
-          <div
-            key={i}
-            className="table-row"
-            style={{
-              gridTemplateColumns: "2fr 1fr 1fr 1fr",
-              borderBottom:
-                i === users.length - 1 ? "none" : "1px solid #1e2535",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div
-                style={{
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "50%",
-                  background: "#1e2d45",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "10px",
-                  color: "#63b3ed",
-                  fontWeight: "600",
-                  flexShrink: 0,
-                }}
-              >
-                {u.firstName?.[0]}
-                {u.lastName?.[0]}
-              </div>
-              <div>
-                <div style={{ color: "#e2e8f0", fontSize: "12px" }}>
-                  {u.firstName} {u.lastName}
-                </div>
-                <div style={{ color: "#4a5568", fontSize: "10px" }}>
-                  {u.email}
-                </div>
-              </div>
+      {users.map((u, i) => (
+        <div
+          key={i}
+          className="table-row"
+          style={{
+            gridTemplateColumns: "2fr 1fr 1fr 1fr",
+            borderBottom: i === users.length - 1 ? "none" : "1px solid #1e2535",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "50%",
+                background: "#1e2d45",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "10px",
+                color: "#63b3ed",
+                fontWeight: "600",
+                flexShrink: 0,
+              }}
+            >
+              {u.firstName?.[0]}
+              {u.lastName?.[0]}
             </div>
             <div>
-              <span
-                className={`pill ${u.role === "admin" ? "pill-delivered" : u.role === "livreur" ? "pill-assigned" : "pill-pending"}`}
-              >
-                {u.role}
-              </span>
-            </div>
-            <div style={{ color: "#718096" }}>{u.phone}</div>
-            <div style={{ color: "#4a5568" }}>
-              {new Date(u.createdAt).toLocaleDateString("fr-FR")}
+              <div style={{ color: "#e2e8f0", fontSize: "12px" }}>
+                {u.firstName} {u.lastName}
+              </div>
+              <div style={{ color: "#4a5568", fontSize: "10px" }}>
+                {u.email}
+              </div>
             </div>
           </div>
-        ))
-      ) : (
-        <div className="chart-empty">Aucun utilisateur</div>
-      )}
+          <div>
+            <span
+              className={`pill ${u.role === "admin" ? "pill-delivered" : u.role === "livreur" ? "pill-assigned" : "pill-pending"}`}
+            >
+              {u.role}
+            </span>
+          </div>
+          <div style={{ color: "#718096" }}>{u.phone}</div>
+          <div style={{ color: "#4a5568" }}>
+            {new Date(u.createdAt).toLocaleDateString("fr-FR")}
+          </div>
+        </div>
+      ))}
     </div>
   );
 
+  // ================================
+  // Revenus
+  // ================================
   const renderRevenue = () => (
     <>
       <div
         className="kpi-grid"
-        style={{ gridTemplateColumns: "repeat(3, 1fr)" }}
+        style={{ gridTemplateColumns: "repeat(3,1fr)" }}
       >
         {[
           {
             label: "Revenus totaux",
-            value: `${revenue.reduce((s, r) => s + r.totalRevenue, 0)}€`,
+            value: `${revenue.reduce((s, r) => s + r.totalRevenue, 0).toFixed(2)}€`,
             color: "#63b3ed",
           },
           {
             label: "Commissions",
-            value: `${revenue.reduce((s, r) => s + r.totalCommission, 0)}€`,
+            value: `${revenue.reduce((s, r) => s + r.totalCommission, 0).toFixed(2)}€`,
             color: "#48bb78",
           },
           {
@@ -842,9 +1406,45 @@ export default function App() {
           </div>
         )}
       </div>
+
+      {/* Tableau détaillé revenus */}
+      <div className="table-card">
+        <div className="chart-title">Détail par jour</div>
+        <div
+          className="table-row table-head"
+          style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}
+        >
+          <div>Date</div>
+          <div>Transactions</div>
+          <div>Revenus</div>
+          <div>Commission</div>
+        </div>
+        {revenue
+          .slice()
+          .reverse()
+          .map((r, i) => (
+            <div
+              key={i}
+              className="table-row"
+              style={{
+                gridTemplateColumns: "1fr 1fr 1fr 1fr",
+                borderBottom:
+                  i === revenue.length - 1 ? "none" : "1px solid #1e2535",
+              }}
+            >
+              <div style={{ color: "#e2e8f0" }}>{r._id}</div>
+              <div style={{ color: "#718096" }}>{r.count}</div>
+              <div style={{ color: "#63b3ed" }}>{r.totalRevenue}€</div>
+              <div style={{ color: "#48bb78" }}>{r.totalCommission}€</div>
+            </div>
+          ))}
+      </div>
     </>
   );
 
+  // ================================
+  // Analytique
+  // ================================
   const renderAnalytics = () => (
     <>
       {distanceStats && (
@@ -924,9 +1524,8 @@ export default function App() {
             <div className="chart-empty">Pas encore de données</div>
           )}
         </div>
-
         <div className="chart-card">
-          <div className="chart-title">Prix moyen par tranche de distance</div>
+          <div className="chart-title">Prix moyen par tranche</div>
           {distanceStats?.byRange?.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={distanceStats.byRange} barSize={32}>
@@ -961,46 +1560,9 @@ export default function App() {
         </div>
       </div>
 
-      <div className="table-card">
-        <div className="chart-title">Détail par tranche de distance</div>
-        <div
-          className="table-row table-head"
-          style={{ gridTemplateColumns: "1fr 1fr 1fr" }}
-        >
-          <div>Tranche</div>
-          <div>Nombre de livraisons</div>
-          <div>Prix moyen</div>
-        </div>
-        {distanceStats?.byRange?.length > 0 ? (
-          distanceStats.byRange.map((d, i) => (
-            <div
-              key={i}
-              className="table-row"
-              style={{
-                gridTemplateColumns: "1fr 1fr 1fr",
-                borderBottom:
-                  i === distanceStats.byRange.length - 1
-                    ? "none"
-                    : "1px solid #1e2535",
-              }}
-            >
-              <div style={{ color: "#e2e8f0" }}>{d.range}</div>
-              <div style={{ color: "#63b3ed" }}>
-                {d.count} livraison{d.count > 1 ? "s" : ""}
-              </div>
-              <div style={{ color: "#48bb78" }}>{d.avgPrice}€</div>
-            </div>
-          ))
-        ) : (
-          <div className="chart-empty" style={{ height: "80px" }}>
-            Pas encore de données
-          </div>
-        )}
-      </div>
-
       <div className="charts-row">
         <div className="chart-card">
-          <div className="chart-title">Répartition des colis par taille</div>
+          <div className="chart-title">Répartition par taille</div>
           {parcelsBySize.length > 0 ? (
             <ResponsiveContainer width="100%" height={220}>
               <PieChart margin={{ top: 20, right: 20, bottom: 0, left: 20 }}>
@@ -1027,7 +1589,6 @@ export default function App() {
             <div className="chart-empty">Pas encore de données</div>
           )}
         </div>
-
         <div className="chart-card">
           <div className="chart-title">Top livreurs</div>
           {topDeliverers.length > 0 ? (
@@ -1070,12 +1631,50 @@ export default function App() {
           )}
         </div>
       </div>
+
+      <div className="table-card">
+        <div className="chart-title">Détail par tranche de distance</div>
+        <div
+          className="table-row table-head"
+          style={{ gridTemplateColumns: "1fr 1fr 1fr" }}
+        >
+          <div>Tranche</div>
+          <div>Livraisons</div>
+          <div>Prix moyen</div>
+        </div>
+        {distanceStats?.byRange?.length > 0 ? (
+          distanceStats.byRange.map((d, i) => (
+            <div
+              key={i}
+              className="table-row"
+              style={{
+                gridTemplateColumns: "1fr 1fr 1fr",
+                borderBottom:
+                  i === distanceStats.byRange.length - 1
+                    ? "none"
+                    : "1px solid #1e2535",
+              }}
+            >
+              <div style={{ color: "#e2e8f0" }}>{d.range}</div>
+              <div style={{ color: "#63b3ed" }}>
+                {d.count} livraison{d.count > 1 ? "s" : ""}
+              </div>
+              <div style={{ color: "#48bb78" }}>{d.avgPrice}€</div>
+            </div>
+          ))
+        ) : (
+          <div className="chart-empty" style={{ height: "80px" }}>
+            Pas encore de données
+          </div>
+        )}
+      </div>
     </>
   );
 
   const pages = {
     overview: renderOverview,
     deliveries: renderDeliveries,
+    announcements: renderAnnouncements,
     users: renderUsers,
     revenue: renderRevenue,
     analytics: renderAnalytics,

@@ -81,4 +81,25 @@ router.post("/push-token", protect, async (req, res) => {
   }
 });
 
+router.delete("/parcels/:id", protect, authorize("admin"), async (req, res) => {
+  try {
+    const parcel = await Parcel.findById(req.params.id);
+    if (!parcel) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Colis introuvable" });
+    }
+    if (parcel.status === "picked_up") {
+      return res.status(400).json({
+        success: false,
+        message: "Impossible de supprimer une livraison en cours",
+      });
+    }
+    await Parcel.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Annonce supprimée avec succès" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;
