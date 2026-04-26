@@ -79,6 +79,7 @@ export default function Tracking() {
 
     // Position en temps réel du livreur
     socketRef.current.on("location_update", (data) => {
+      console.log("Position reçue:", data);
       const newPos = { latitude: data.lat, longitude: data.lng };
       setLivreurPos(newPos);
       setTracePath((prev) => [...prev, newPos]);
@@ -191,6 +192,7 @@ export default function Tracking() {
         originLng={senderCoords?.longitude}
         destLat={recipientCoords?.latitude}
         destLng={recipientCoords?.longitude}
+        livreurPos={livreurPos}
       />
 
       {/* Toggle carte */}

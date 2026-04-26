@@ -1,6 +1,6 @@
-// Carte OpenStreetMap via WebView — fonctionne sur iOS et Android sans build natif
 import { View, StyleSheet, ActivityIndicator } from "react-native";
 import { WebView } from "react-native-webview";
+import { useRef, useEffect } from "react";
 import { COLORS } from "../constants/colors";
 
 export default function MapFallback({
@@ -10,13 +10,27 @@ export default function MapFallback({
   destLat,
   destLng,
   points = [],
+  livreurPos = null, // ← nouvelle prop
 }) {
-  // Construire les marqueurs et le tracé
+  const webViewRef = useRef(null);
+
+  // Envoyer la position du livreur en temps réel
+  useEffect(() => {
+    if (livreurPos && webViewRef.current) {
+      webViewRef.current.postMessage(
+        JSON.stringify({
+          type: "livreur_position",
+          lat: livreurPos.latitude,
+          lng: livreurPos.longitude,
+        }),
+      );
+    }
+  }, [livreurPos]);
+
   const buildHTML = () => {
     const centerLat = originLat || points[0]?.lat || 48.8566;
     const centerLng = originLng || points[0]?.lng || 2.3522;
 
-    // Construire les points du tracé GPX
     const polylinePoints =
       points.length > 0
         ? points
@@ -53,7 +67,6 @@ export default function MapFallback({
       `);
     }
 
-    // Marqueurs du tracé
     if (points.length > 0) {
       const first = points[0];
       const last = points[points.length - 1];
@@ -114,6 +127,62 @@ export default function MapFallback({
     `
         : ""
     }
+
+    // Marqueur livreur en temps réel
+    var livreurMarker = null
+    var livreurPath   = []
+    var livreurPolyline = null
+
+    // Écouter les messages de React Native
+    document.addEventListener('message', function(e) {
+      handleMessage(e.data)
+    })
+    window.addEventListener('message', function(e) {
+      handleMessage(e.data)
+    })
+
+    function handleMessage(data) {
+      try {
+        var msg = JSON.parse(data)
+        if (msg.type === 'livreur_position') {
+          var latlng = [msg.lat, msg.lng]
+
+          // La première fois qu'on reçoit une position — efface le tracé de base
+          if (livreurPath.length === 0 && polyline) {
+            map.removeLayer(polyline)
+          }
+
+          // Mettre à jour ou créer le marqueur livreur
+          if (livreurMarker) {
+            livreurMarker.setLatLng(latlng)
+          } else {
+            livreurMarker = L.marker(latlng, {
+              icon: L.divIcon({
+                className: '',
+                html: '<div style="background:#FF6B35;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:10px;">🚗</div>',
+                iconSize: [20, 20],
+              })
+            }).addTo(map).bindPopup('Livreur')
+          }
+
+          // Tracer le chemin du livreur
+          livreurPath.push(latlng)
+          if (livreurPolyline) {
+            livreurPolyline.setLatLngs(livreurPath)
+          } else {
+            livreurPolyline = L.polyline(livreurPath, {
+              color: '#FF6B35',
+              weight: 3,
+              opacity: 0.8,
+              dashArray: '5, 5',
+            }).addTo(map)
+          }
+
+          // Centrer la carte sur le livreur
+          map.panTo(latlng)
+        }
+      } catch(e) {}
+    }
   </script>
 </body>
 </html>
@@ -123,6 +192,7 @@ export default function MapFallback({
   return (
     <View style={[styles.container, { height }]}>
       <WebView
+        ref={webViewRef}
         source={{ html: buildHTML() }}
         style={styles.webview}
         scrollEnabled={false}
