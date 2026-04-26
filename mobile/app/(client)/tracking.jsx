@@ -14,7 +14,8 @@ import { COLORS } from "../../constants/colors";
 import api from "../../services/api";
 
 const { width, height } = Dimensions.get("window");
-const SOCKET_URL = "http://192.168.1.182:3000";
+// const SOCKET_URL = "http://192.168.1.182:3000";
+const API_URL = "https://deliverconnect-production.up.railway.app/api";
 
 export default function Tracking() {
   const router = useRouter();

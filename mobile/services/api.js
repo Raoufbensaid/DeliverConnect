@@ -1,7 +1,8 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://192.168.1.182:3000/api"; // Remplace par ton IP locale !
+// const API_URL = "http://192.168.1.182:3000/api"; // Remplace par ton IP locale !
+const API_URL = "https://deliverconnect-production.up.railway.app/api";
 
 const api = axios.create({ baseURL: API_URL });
 
