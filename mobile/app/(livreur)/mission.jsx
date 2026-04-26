@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import MapView, { Marker, Polyline } from "react-native-maps";
+// import SafeMapView, { Marker, Polyline } from "../../components/SafeMapView";
+import MapFallback from "../../components/MapFallback";
 import {
   View,
   Text,
@@ -155,49 +156,13 @@ export default function Mission() {
             </View>
 
             {parcel?.sender?.address?.lat && parcel?.recipient?.address?.lat ? (
-              <MapView
-                style={styles.modalMap}
-                initialRegion={{
-                  latitude: parcel.sender.address.lat,
-                  longitude: parcel.sender.address.lng,
-                  latitudeDelta: 0.5,
-                  longitudeDelta: 0.5,
-                }}
-              >
-                <Marker
-                  coordinate={{
-                    latitude: parcel.sender.address.lat,
-                    longitude: parcel.sender.address.lng,
-                  }}
-                  title="Départ"
-                  description={`${parcel.sender.address.street}, ${parcel.sender.address.city}`}
-                  pinColor="blue"
-                />
-                <Marker
-                  coordinate={{
-                    latitude: parcel.recipient.address.lat,
-                    longitude: parcel.recipient.address.lng,
-                  }}
-                  title="Arrivée"
-                  description={`${parcel.recipient.address.street}, ${parcel.recipient.address.city}`}
-                  pinColor="green"
-                />
-                <Polyline
-                  coordinates={[
-                    {
-                      latitude: parcel.sender.address.lat,
-                      longitude: parcel.sender.address.lng,
-                    },
-                    {
-                      latitude: parcel.recipient.address.lat,
-                      longitude: parcel.recipient.address.lng,
-                    },
-                  ]}
-                  strokeColor={COLORS.primary}
-                  strokeWidth={3}
-                  lineDashPattern={[10, 5]}
-                />
-              </MapView>
+              <MapFallback
+                height={400}
+                originLat={parcel?.sender?.address?.lat}
+                originLng={parcel?.sender?.address?.lng}
+                destLat={parcel?.recipient?.address?.lat}
+                destLng={parcel?.recipient?.address?.lng}
+              />
             ) : (
               <View style={styles.centered}>
                 <Text style={{ color: COLORS.textSecond, fontSize: 14 }}>

@@ -8,10 +8,13 @@ import {
   Dimensions,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import MapView, { Marker, Polyline } from "react-native-maps";
+// import SafeMapView, { Marker, Polyline } from "../../components/SafeMapView";
+import MapFallback from "../../components/MapFallback";
 import { io } from "socket.io-client";
 import { COLORS } from "../../constants/colors";
 import api from "../../services/api";
+
+const SOCKET_URL = "https://deliverconnect-production.up.railway.app";
 
 const { width, height } = Dimensions.get("window");
 // const SOCKET_URL = "http://192.168.1.182:3000";
@@ -30,6 +33,7 @@ export default function Tracking() {
   const mapRef = useRef(null);
 
   useEffect(() => {
+    console.log("parcelId reçu:", parcelId);
     fetchParcel();
     connectSocket();
     return () => {
@@ -42,9 +46,22 @@ export default function Tracking() {
 
   const fetchParcel = async () => {
     try {
+      console.log("Fetching parcel...");
       const res = await api.get(`/parcels/${parcelId}`);
+      console.log("Parcel reçu:", JSON.stringify(res.data.parcel?.status));
+      console.log(
+        "Sender coords:",
+        res.data.parcel?.sender?.address?.lat,
+        res.data.parcel?.sender?.address?.lng,
+      );
+      console.log(
+        "Recipient coords:",
+        res.data.parcel?.recipient?.address?.lat,
+        res.data.parcel?.recipient?.address?.lng,
+      );
       setParcel(res.data.parcel);
-    } catch {
+    } catch (err) {
+      console.error("Erreur fetchParcel:", err.message);
     } finally {
       setLoading(false);
     }
@@ -113,6 +130,20 @@ export default function Tracking() {
     );
   }
 
+  const senderCoords = parcel?.sender?.address?.lat
+    ? {
+        latitude: parcel.sender.address.lat,
+        longitude: parcel.sender.address.lng,
+      }
+    : null;
+
+  const recipientCoords = parcel?.recipient?.address?.lat
+    ? {
+        latitude: parcel.recipient.address.lat,
+        longitude: parcel.recipient.address.lng,
+      }
+    : null;
+
   // Vérification que les coordonnées existent
   if (!senderCoords && !livreurPos) {
     return (
@@ -137,20 +168,6 @@ export default function Tracking() {
     );
   }
 
-  const senderCoords = parcel?.sender?.address?.lat
-    ? {
-        latitude: parcel.sender.address.lat,
-        longitude: parcel.sender.address.lng,
-      }
-    : null;
-
-  const recipientCoords = parcel?.recipient?.address?.lat
-    ? {
-        latitude: parcel.recipient.address.lat,
-        longitude: parcel.recipient.address.lng,
-      }
-    : null;
-
   const initialRegion = senderCoords
     ? {
         latitude: senderCoords.latitude,
@@ -168,50 +185,13 @@ export default function Tracking() {
   return (
     <View style={styles.container}>
       {/* Carte */}
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        initialRegion={initialRegion}
-        mapType={mapType}
-      >
-        {/* Marqueur départ */}
-        {senderCoords && (
-          <Marker
-            coordinate={senderCoords}
-            title="Départ"
-            description={parcel?.sender?.address?.city}
-            pinColor="blue"
-          />
-        )}
-
-        {/* Marqueur arrivée */}
-        {recipientCoords && (
-          <Marker
-            coordinate={recipientCoords}
-            title="Arrivée"
-            description={parcel?.recipient?.address?.city}
-            pinColor="green"
-          />
-        )}
-
-        {/* Position livreur en live */}
-        {livreurPos && (
-          <Marker coordinate={livreurPos} title="Livreur">
-            <View style={styles.livreurMarker}>
-              <Text style={styles.livreurMarkerText}>🚗</Text>
-            </View>
-          </Marker>
-        )}
-
-        {/* Tracé du livreur */}
-        {tracePath.length > 1 && (
-          <Polyline
-            coordinates={tracePath}
-            strokeColor={COLORS.primary}
-            strokeWidth={3}
-          />
-        )}
-      </MapView>
+      <MapFallback
+        height={height * 0.55}
+        originLat={senderCoords?.latitude}
+        originLng={senderCoords?.longitude}
+        destLat={recipientCoords?.latitude}
+        destLng={recipientCoords?.longitude}
+      />
 
       {/* Toggle carte */}
       <View style={styles.mapToggle}>

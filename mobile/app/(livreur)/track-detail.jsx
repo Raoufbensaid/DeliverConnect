@@ -9,7 +9,8 @@ import {
   Dimensions,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import MapView, { Polyline, Marker } from "react-native-maps";
+// import SafeMapView, { Marker, Polyline } from "../../components/SafeMapView";
+import MapFallback from "../../components/MapFallback";
 import { COLORS } from "../../constants/colors";
 import api from "../../services/api";
 
@@ -98,25 +99,10 @@ export default function TrackDetail() {
         </TouchableOpacity>
         <Text style={styles.title}>Détail du tracé</Text>
       </View>
-
       <ScrollView>
         {/* Carte */}
         <View style={styles.mapContainer}>
-          <MapView style={styles.map} region={region} mapType={mapType}>
-            {coordinates.length > 1 && (
-              <Polyline
-                coordinates={coordinates}
-                strokeColor={COLORS.primary}
-                strokeWidth={4}
-              />
-            )}
-            {firstPoint && (
-              <Marker coordinate={firstPoint} title="Départ" pinColor="blue" />
-            )}
-            {lastPoint && firstPoint !== lastPoint && (
-              <Marker coordinate={lastPoint} title="Arrivée" pinColor="green" />
-            )}
-          </MapView>
+          <MapFallback height={280} points={activePoints} />
 
           {/* Toggle carte */}
           <View style={styles.mapToggle}>
