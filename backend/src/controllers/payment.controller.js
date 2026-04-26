@@ -1,7 +1,7 @@
 const Payment = require("../models/Payment.model");
 const Parcel = require("../models/Parcel.model");
 const { createPaymentIntent } = require("../services/stripe.service");
-const stripe = require("../config/stripe");
+const getStripe = require("../config/stripe");
 
 // ================================
 // @route   POST /api/payments/create-intent

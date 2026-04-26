@@ -1,8 +1,8 @@
-const stripe = require("../config/stripe");
+const getStripe = require("../config/stripe");
 
 // Créer un PaymentIntent — le client paie avant publication
 const createPaymentIntent = async (amount) => {
-  const paymentIntent = await stripe.paymentIntents.create({
+  const paymentIntent = await getStripe().paymentIntents.create({
     amount: Math.round(amount * 100), // Stripe travaille en centimes
     currency: "eur",
     automatic_payment_methods: { enabled: true },
@@ -12,7 +12,7 @@ const createPaymentIntent = async (amount) => {
 
 // Transférer l'argent au livreur (80%)
 const transferToDeliverer = async (amount, stripeAccountId) => {
-  const transfer = await stripe.transfers.create({
+  const transfer = await getStripe().transfers.create({
     amount: Math.round(amount * 100), // en centimes
     currency: "eur",
     destination: stripeAccountId,
