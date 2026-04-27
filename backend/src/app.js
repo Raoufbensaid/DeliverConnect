@@ -31,6 +31,7 @@ app.use("/api/deliveries", require("./routes/delivery.routes"));
 app.use("/api/payments", require("./routes/payment.routes"));
 app.use("/api/analytics", require("./routes/analytics.routes"));
 app.use("/api/tracks", require("./routes/track.routes"));
+app.use("/api/reviews", require("./routes/review.routes"));
 
 app.get("/", (req, res) => {
   res.json({ message: "🚀 DeliverConnect API — opérationnelle" });
