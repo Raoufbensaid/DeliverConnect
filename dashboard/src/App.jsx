@@ -137,6 +137,22 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    id: "reviews",
+    label: "Évaluations",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        width="16"
+        height="16"
+      >
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      </svg>
+    ),
+  },
 ];
 
 const tooltipStyle = {
@@ -185,13 +201,15 @@ export default function App() {
     localStorage.removeItem("adminToken");
   };
 
+  const [reviews, setReviews] = useState([]);
+
   useEffect(() => {
     if (!token) return;
     const fetchData = async () => {
       setLoading(true);
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const [ov, rev, top, sizes, usersRes, parcelsRes, distRes] =
+        const [ov, rev, top, sizes, usersRes, parcelsRes, distRes, reviewsRes] =
           await Promise.all([
             api.get("/analytics/overview", { headers }),
             api.get("/analytics/revenue", { headers }),
@@ -200,6 +218,7 @@ export default function App() {
             api.get("/users", { headers }),
             api.get("/users/parcels", { headers }),
             api.get("/analytics/distances", { headers }),
+            api.get("/reviews", { headers }),
           ]);
         setOverview(ov.data.data);
         setRevenue(rev.data.data);
@@ -213,6 +232,7 @@ export default function App() {
         setUsers(usersRes.data.users);
         setParcels(parcelsRes.data.parcels);
         setDistanceStats(distRes.data.data);
+        setReviews(reviewsRes.data.reviews || []);
       } catch {
         setError("Erreur de chargement");
       } finally {
@@ -1671,6 +1691,277 @@ export default function App() {
     </>
   );
 
+  const renderStars = (rating) => "★".repeat(rating) + "☆".repeat(5 - rating);
+
+  const renderReviews = () => {
+    const avgRating =
+      reviews.length > 0
+        ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(
+            1,
+          )
+        : "—";
+    const onTimeCount = reviews.filter((r) => r.onTime).length;
+    const damagedCount = reviews.filter((r) => r.damaged).length;
+    // const hadIssuesCount = reviews.filter((r) => r.hadIssues).length;
+
+    return (
+      <>
+        {/* KPIs */}
+        <div
+          className="kpi-grid"
+          style={{ gridTemplateColumns: "repeat(4,1fr)" }}
+        >
+          {[
+            {
+              label: "Évaluations totales",
+              value: reviews.length,
+              color: "#63b3ed",
+            },
+            {
+              label: "Note moyenne",
+              value: `${avgRating} / 5`,
+              color: "#f6ad55",
+            },
+            {
+              label: "Livraisons à temps",
+              value: `${onTimeCount} / ${reviews.length}`,
+              color: "#48bb78",
+            },
+            {
+              label: "Colis endommagés",
+              value: damagedCount,
+              color: "#fc8181",
+            },
+          ].map((k, i) => (
+            <div
+              key={i}
+              className="kpi-card"
+              style={{ borderLeftColor: k.color }}
+            >
+              <div className="kpi-label">{k.label}</div>
+              <div className="kpi-value" style={{ color: k.color }}>
+                {k.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Liste des évaluations */}
+        <div className="table-card">
+          <div className="chart-title">
+            Toutes les évaluations ({reviews.length})
+          </div>
+          {reviews.length === 0 ? (
+            <div className="chart-empty">Aucune évaluation pour le moment</div>
+          ) : (
+            reviews.map((r, i) => (
+              <div
+                key={i}
+                style={{
+                  background: "#1a2235",
+                  borderRadius: "12px",
+                  padding: "16px",
+                  marginBottom: "12px",
+                  border: "1px solid #1e2535",
+                }}
+              >
+                {/* Header */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{
+                        fontSize: "18px",
+                        color: "#f6ad55",
+                        letterSpacing: "2px",
+                      }}
+                    >
+                      {renderStars(r.rating)}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "#4a5568",
+                        marginTop: "4px",
+                      }}
+                    >
+                      {new Date(r.createdAt).toLocaleDateString("fr-FR", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "22px",
+                      fontWeight: "800",
+                      color: "#f6ad55",
+                    }}
+                  >
+                    {r.rating}/5
+                  </div>
+                </div>
+
+                {/* Client + Livreur */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "10px",
+                    marginBottom: "12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "#0f1117",
+                      borderRadius: "8px",
+                      padding: "10px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "#4a5568",
+                        textTransform: "uppercase",
+                        letterSpacing: ".05em",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      👤 Client
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        color: "#e2e8f0",
+                      }}
+                    >
+                      {r.clientId?.firstName} {r.clientId?.lastName}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      background: "#0f1117",
+                      borderRadius: "8px",
+                      padding: "10px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "#4a5568",
+                        textTransform: "uppercase",
+                        letterSpacing: ".05em",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      🚗 Livreur
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        color: "#e2e8f0",
+                      }}
+                    >
+                      {r.delivererId?.firstName} {r.delivererId?.lastName}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Questions */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4,1fr)",
+                    gap: "8px",
+                    marginBottom: "10px",
+                  }}
+                >
+                  {[
+                    { label: "✅ À temps", value: r.onTime },
+                    { label: "📦 Endommagé", value: r.damaged },
+                    { label: "🤝 Bien reçu", value: r.wellReceived },
+                    { label: "⚠️ Soucis", value: r.hadIssues },
+                  ].map((item, j) => (
+                    <div
+                      key={j}
+                      style={{
+                        background: "#0f1117",
+                        borderRadius: "8px",
+                        padding: "8px",
+                        textAlign: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "10px",
+                          color: "#4a5568",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        {item.label}
+                      </div>
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: "600",
+                          padding: "2px 8px",
+                          borderRadius: "99px",
+                          background: item.value ? "#1a3a1a" : "#2d0f0f",
+                          color: item.value ? "#48bb78" : "#fc8181",
+                        }}
+                      >
+                        {item.value ? "Oui" : "Non"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Commentaire */}
+                {r.comment && (
+                  <div
+                    style={{
+                      background: "#0f1117",
+                      borderRadius: "8px",
+                      padding: "10px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "#4a5568",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      💬 Commentaire
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "12px",
+                        color: "#a0aec0",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      "{r.comment}"
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </>
+    );
+  };
+
   const pages = {
     overview: renderOverview,
     deliveries: renderDeliveries,
@@ -1678,6 +1969,7 @@ export default function App() {
     users: renderUsers,
     revenue: renderRevenue,
     analytics: renderAnalytics,
+    reviews: renderReviews,
   };
 
   return (

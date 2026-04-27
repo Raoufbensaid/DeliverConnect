@@ -8,6 +8,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { COLORS } from "../../constants/colors";
@@ -22,19 +24,98 @@ const statusLabel = {
   cancelled: { label: "Annulé", color: "#791F1F", bg: "#FCEBEB" },
 };
 
+const TABS = [
+  { key: "active", label: "En cours" },
+  { key: "delivered", label: "Livré" },
+];
+
+function StarRating({ value, onChange }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 8, marginVertical: 8 }}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <TouchableOpacity key={star} onPress={() => onChange(star)}>
+          <Text
+            style={{
+              fontSize: 32,
+              color: star <= value ? "#F6AD55" : "#CBD5E0",
+            }}
+          >
+            ★
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+function YesNo({ value, onChange }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 10, marginVertical: 6 }}>
+      {["Oui", "Non"].map((opt) => (
+        <TouchableOpacity
+          key={opt}
+          onPress={() => onChange(opt === "Oui")}
+          style={{
+            paddingHorizontal: 20,
+            paddingVertical: 8,
+            borderRadius: 10,
+            borderWidth: 1.5,
+            borderColor:
+              value === (opt === "Oui") ? COLORS.primary : COLORS.grayBorder,
+            backgroundColor:
+              value === (opt === "Oui") ? COLORS.primary : COLORS.white,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: "600",
+              color: value === (opt === "Oui") ? COLORS.white : COLORS.text,
+            }}
+          >
+            {opt}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
 export default function ClientHome() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [parcels, setParcels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState("active");
+
+  // Review
+  const [reviewModal, setReviewModal] = useState(false);
+  const [reviewParcel, setReviewParcel] = useState(null);
+  const [existingReview, setExistingReview] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [onTime, setOnTime] = useState(null);
+  const [damaged, setDamaged] = useState(null);
+  const [wellReceived, setWellReceived] = useState(null);
+  const [hadIssues, setHadIssues] = useState(null);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
     try {
       const u = await getUser();
       setUser(u);
-      const res = await api.get("/parcels/my");
-      setParcels(res.data.parcels);
+      const [parcelsRes, reviewsRes] = await Promise.all([
+        api.get("/parcels/my"),
+        api.get("/reviews/my"),
+      ]);
+      setParcels(parcelsRes.data.parcels);
+      // Indexer les reviews par parcelId pour accès rapide
+      const reviewsMap = {};
+      reviewsRes.data.reviews?.forEach((r) => {
+        reviewsMap[r.parcelId] = r;
+      });
+      setReviews(reviewsMap);
     } catch (err) {
       console.error(err);
     } finally {
@@ -65,6 +146,73 @@ export default function ClientHome() {
     ]);
   };
 
+  const openReview = async (parcel) => {
+    setReviewParcel(parcel);
+    setRating(0);
+    setOnTime(null);
+    setDamaged(null);
+    setWellReceived(null);
+    setHadIssues(null);
+    setComment("");
+    setExistingReview(null);
+    try {
+      const res = await api.get(`/reviews/parcel/${parcel._id}`);
+      if (res.data.review) {
+        setExistingReview(res.data.review);
+        setRating(res.data.review.rating);
+        setOnTime(res.data.review.onTime);
+        setDamaged(res.data.review.damaged);
+        setWellReceived(res.data.review.wellReceived);
+        setHadIssues(res.data.review.hadIssues);
+        setComment(res.data.review.comment || "");
+      }
+    } catch {}
+    setReviewModal(true);
+  };
+
+  const submitReview = async () => {
+    if (rating === 0)
+      return Alert.alert("Erreur", "Veuillez donner une note !");
+    if (
+      onTime === null ||
+      damaged === null ||
+      wellReceived === null ||
+      hadIssues === null
+    )
+      return Alert.alert(
+        "Erreur",
+        "Veuillez répondre à toutes les questions !",
+      );
+    setSubmitting(true);
+    try {
+      await api.post("/reviews", {
+        parcelId: reviewParcel._id,
+        rating,
+        onTime,
+        damaged,
+        wellReceived,
+        hadIssues,
+        comment,
+      });
+      Alert.alert("Merci !", "Votre évaluation a été envoyée avec succès 🎉");
+      setReviewModal(false);
+    } catch (err) {
+      Alert.alert(
+        "Erreur",
+        err.response?.data?.message || "Erreur lors de l'envoi",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const activeParcels = parcels.filter((p) =>
+    ["pending", "assigned", "picked_up"].includes(p.status),
+  );
+  const deliveredParcels = parcels.filter((p) => p.status === "delivered");
+  const displayedParcels =
+    activeTab === "active" ? activeParcels : deliveredParcels;
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -72,6 +220,99 @@ export default function ClientHome() {
       </View>
     );
   }
+
+  const renderCard = (p, i) => {
+    const status = statusLabel[p.status] || statusLabel.pending;
+    const isDelivered = p.status === "delivered";
+    const existingReview = reviews[p._id];
+
+    return (
+      <TouchableOpacity
+        key={i}
+        style={styles.parcelCard}
+        onPress={() => {
+          if (isDelivered) {
+            if (existingReview) {
+              // Déjà évalué → afficher le détail du tracé
+              router.push(
+                `/(client)/track-detail?deliveryId=${p.deliveryId || existingReview?.deliveryId}`,
+              );
+            } else {
+              // Pas encore évalué → ouvrir le formulaire
+              openReview(p);
+            }
+          } else {
+            router.push(`/(client)/tracking?parcelId=${p._id}`);
+          }
+        }}
+      >
+        <View style={styles.parcelRow}>
+          <View style={styles.parcelInfo}>
+            <Text style={styles.parcelRoute}>
+              {p.sender?.address?.city} → {p.recipient?.address?.city}
+            </Text>
+            <Text style={styles.parcelDetail}>
+              {p.size?.toUpperCase()} · {p.weight}kg · {p.distanceKm}km
+            </Text>
+            {p.fragile && <Text style={styles.fragileTag}>⚠️ Fragile</Text>}
+            {p.urgent && <Text style={styles.urgentTag}>⚡ Urgent</Text>}
+          </View>
+          <View style={styles.parcelRight}>
+            <Text style={styles.parcelPrice}>{p.price}€</Text>
+            <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
+              <Text style={[styles.statusText, { color: status.color }]}>
+                {status.label}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            borderTopWidth: 1,
+            borderTopColor: COLORS.grayBorder,
+            paddingTop: 8,
+          }}
+        >
+          <Text style={styles.parcelDate}>
+            {new Date(p.createdAt).toLocaleDateString("fr-FR", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </Text>
+          {isDelivered &&
+            (existingReview ? (
+              // Déjà évalué → affiche les étoiles
+              <View
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+              >
+                <Text style={{ fontSize: 13, color: "#F6AD55" }}>
+                  {"★".repeat(existingReview.rating)}
+                  {"☆".repeat(5 - existingReview.rating)}
+                </Text>
+                <Text style={{ fontSize: 11, color: COLORS.textSecond }}>
+                  →
+                </Text>
+              </View>
+            ) : (
+              // Pas encore évalué
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: COLORS.primary,
+                  fontWeight: "600",
+                }}
+              >
+                ⭐ Évaluer →
+              </Text>
+            ))}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -112,84 +353,198 @@ export default function ClientHome() {
         <Text style={styles.mainBtnArrow}>→</Text>
       </TouchableOpacity>
 
-      {/* Historique */}
+      {/* Titre section */}
       <Text style={styles.sectionTitle}>Mes envois ({parcels.length})</Text>
 
+      {/* Onglets */}
+      <View style={styles.tabsRow}>
+        {TABS.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+            onPress={() => setActiveTab(tab.key)}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === tab.key && styles.tabTextActive,
+              ]}
+            >
+              {tab.label}
+              {tab.key === "active" ? ` (${activeParcels.length})` : ""}
+              {tab.key === "delivered" ? ` (${deliveredParcels.length})` : ""}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Liste */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {parcels.length === 0 ? (
+        {displayedParcels.length === 0 ? (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>📭</Text>
-            <Text style={styles.emptyText}>Aucun envoi pour le moment</Text>
-            <Text style={styles.emptySub}>Créez votre première annonce !</Text>
+            <Text style={styles.emptyText}>
+              {activeTab === "active"
+                ? "Aucun envoi en cours"
+                : "Aucune livraison terminée"}
+            </Text>
+            <Text style={styles.emptySub}>
+              {activeTab === "active"
+                ? "Créez votre première annonce !"
+                : "Vos livraisons terminées apparaîtront ici"}
+            </Text>
           </View>
         ) : (
-          parcels.map((p, i) => {
-            const status = statusLabel[p.status] || statusLabel.pending;
-            return (
-              <TouchableOpacity
-                key={i}
-                style={styles.parcelCard}
-                onPress={() =>
-                  router.push(`/(client)/tracking?parcelId=${p._id}`)
-                }
-              >
-                <View style={styles.parcelRow}>
-                  <View style={styles.parcelInfo}>
-                    <Text style={styles.parcelRoute}>
-                      {p.sender?.address?.city} → {p.recipient?.address?.city}
-                    </Text>
-                    <Text style={styles.parcelDetail}>
-                      {p.size?.toUpperCase()} · {p.weight}kg · {p.distanceKm}km
-                    </Text>
-                    {p.fragile && (
-                      <Text style={styles.fragileTag}>⚠️ Fragile</Text>
-                    )}
-                    {p.urgent && (
-                      <Text style={styles.urgentTag}>⚡ Urgent</Text>
-                    )}
-                  </View>
-                  <View style={styles.parcelRight}>
-                    <Text style={styles.parcelPrice}>{p.price}€</Text>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        { backgroundColor: status.bg },
-                      ]}
-                    >
-                      <Text
-                        style={[styles.statusText, { color: status.color }]}
-                      >
-                        {status.label}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-                <Text style={styles.parcelDate}>
-                  {new Date(p.createdAt).toLocaleDateString("fr-FR", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </Text>
-              </TouchableOpacity>
-            );
-          })
+          displayedParcels.map((p, i) => renderCard(p, i))
         )}
+        <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Modal évaluation */}
+      <Modal
+        visible={reviewModal}
+        animationType="slide"
+        onRequestClose={() => setReviewModal(false)}
+      >
+        <ScrollView
+          style={{ flex: 1, backgroundColor: COLORS.white }}
+          contentContainerStyle={{ padding: 24, paddingTop: 60 }}
+        >
+          {/* Header */}
+          <TouchableOpacity
+            onPress={() => setReviewModal(false)}
+            style={{ marginBottom: 16 }}
+          >
+            <Text style={{ fontSize: 15, color: COLORS.primary }}>
+              ← Retour
+            </Text>
+          </TouchableOpacity>
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "bold",
+              color: COLORS.text,
+              marginBottom: 4,
+            }}
+          >
+            {existingReview ? "Votre évaluation" : "Évaluer le livreur"}
+          </Text>
+          <Text
+            style={{ fontSize: 13, color: COLORS.textSecond, marginBottom: 20 }}
+          >
+            {reviewParcel?.sender?.address?.city} →{" "}
+            {reviewParcel?.recipient?.address?.city}
+          </Text>
+
+          {existingReview && (
+            <View
+              style={{
+                backgroundColor: "#EAF3DE",
+                borderRadius: 10,
+                padding: 12,
+                marginBottom: 16,
+              }}
+            >
+              <Text
+                style={{ fontSize: 12, color: "#27500A", fontWeight: "600" }}
+              >
+                ✅ Évaluation déjà envoyée
+              </Text>
+            </View>
+          )}
+
+          {/* Note étoiles */}
+          <View style={styles.reviewSection}>
+            <Text style={styles.reviewLabel}>⭐ Note globale</Text>
+            <StarRating
+              value={rating}
+              onChange={existingReview ? () => {} : setRating}
+            />
+          </View>
+
+          {/* Livraison à temps */}
+          <View style={styles.reviewSection}>
+            <Text style={styles.reviewLabel}>
+              ✅ Livraison effectuée à temps ?
+            </Text>
+            <YesNo
+              value={onTime}
+              onChange={existingReview ? () => {} : setOnTime}
+            />
+          </View>
+
+          {/* colis en bon état */}
+          <View style={styles.reviewSection}>
+            <Text style={styles.reviewLabel}>📦 Colis en bon état ?</Text>
+            <YesNo
+              value={damaged}
+              onChange={existingReview ? () => {} : setDamaged}
+            />
+          </View>
+
+          {/* Bien réceptionné */}
+          <View style={styles.reviewSection}>
+            <Text style={styles.reviewLabel}>
+              🤝 Expéditeur a bien réceptionné le colis ?
+            </Text>
+            <YesNo
+              value={wellReceived}
+              onChange={existingReview ? () => {} : setWellReceived}
+            />
+          </View>
+
+          {/* Soucis */}
+          <View style={styles.reviewSection}>
+            <Text style={styles.reviewLabel}>
+              ⚠️ La livraison s'est bien passée ?
+            </Text>
+            <YesNo
+              value={hadIssues}
+              onChange={existingReview ? () => {} : setHadIssues}
+            />
+          </View>
+
+          {/* Commentaire */}
+          <View style={styles.reviewSection}>
+            <Text style={styles.reviewLabel}>💬 Commentaire</Text>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Décrivez votre expérience..."
+              placeholderTextColor={COLORS.textSecond}
+              multiline
+              numberOfLines={4}
+              value={comment}
+              onChangeText={existingReview ? () => {} : setComment}
+              editable={!existingReview}
+            />
+          </View>
+
+          {/* Bouton envoi */}
+          {!existingReview && (
+            <TouchableOpacity
+              style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
+              onPress={submitReview}
+              disabled={submitting}
+            >
+              <Text style={styles.submitBtnText}>
+                {submitting ? "Envoi en cours..." : "Envoyer l'évaluation ⭐"}
+              </Text>
+            </TouchableOpacity>
+          )}
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRight: {
-    alignItems: "flex-end",
-    gap: 6,
-  },
+  headerRight: { alignItems: "flex-end", gap: 6 },
   avatarBtn: {
     width: 36,
     height: 36,
@@ -199,16 +554,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   avatarBtnText: { fontSize: 13, fontWeight: "700", color: COLORS.white },
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.grayLight,
-    paddingTop: 60,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  container: { flex: 1, backgroundColor: COLORS.grayLight, paddingTop: 60 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -216,21 +563,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 20,
   },
-  greeting: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: COLORS.text,
-  },
-  headerSub: {
-    fontSize: 13,
-    color: COLORS.textSecond,
-    marginTop: 2,
-  },
-  logoutBtn: {
-    fontSize: 13,
-    color: COLORS.danger,
-    marginTop: 4,
-  },
+  greeting: { fontSize: 22, fontWeight: "bold", color: COLORS.text },
+  headerSub: { fontSize: 13, color: COLORS.textSecond, marginTop: 2 },
+  logoutBtn: { fontSize: 13, color: COLORS.danger, marginTop: 4 },
   mainBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -241,24 +576,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 14,
   },
-  mainBtnIcon: {
-    fontSize: 28,
-  },
-  mainBtnTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: COLORS.white,
-  },
-  mainBtnSub: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.8)",
-    marginTop: 2,
-  },
-  mainBtnArrow: {
-    marginLeft: "auto",
-    fontSize: 20,
-    color: COLORS.white,
-  },
+  mainBtnIcon: { fontSize: 28 },
+  mainBtnTitle: { fontSize: 17, fontWeight: "700", color: COLORS.white },
+  mainBtnSub: { fontSize: 12, color: "rgba(255,255,255,0.8)", marginTop: 2 },
+  mainBtnArrow: { marginLeft: "auto", fontSize: 20, color: COLORS.white },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
@@ -266,24 +587,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 12,
   },
-  empty: {
-    alignItems: "center",
-    paddingVertical: 60,
+  tabsRow: {
+    flexDirection: "row",
+    marginHorizontal: 20,
+    marginBottom: 14,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: COLORS.grayBorder,
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
+  tab: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: "center" },
+  tabActive: { backgroundColor: COLORS.primary },
+  tabText: { fontSize: 13, fontWeight: "600", color: COLORS.textSecond },
+  tabTextActive: { color: COLORS.white },
+  empty: { alignItems: "center", paddingVertical: 60 },
+  emptyIcon: { fontSize: 48, marginBottom: 12 },
   emptyText: {
     fontSize: 16,
     fontWeight: "600",
     color: COLORS.text,
     marginBottom: 4,
   },
-  emptySub: {
-    fontSize: 13,
-    color: COLORS.textSecond,
-  },
+  emptySub: { fontSize: 13, color: COLORS.textSecond },
   parcelCard: {
     backgroundColor: COLORS.white,
     marginHorizontal: 20,
@@ -299,51 +625,50 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 8,
   },
-  parcelInfo: {
-    flex: 1,
-  },
+  parcelInfo: { flex: 1 },
   parcelRoute: {
     fontSize: 15,
     fontWeight: "600",
     color: COLORS.text,
     marginBottom: 4,
   },
-  parcelDetail: {
-    fontSize: 12,
-    color: COLORS.textSecond,
+  parcelDetail: { fontSize: 12, color: COLORS.textSecond, marginBottom: 4 },
+  fragileTag: { fontSize: 11, color: COLORS.warning },
+  urgentTag: { fontSize: 11, color: COLORS.danger },
+  parcelRight: { alignItems: "flex-end", gap: 6 },
+  parcelPrice: { fontSize: 16, fontWeight: "700", color: COLORS.primary },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99 },
+  statusText: { fontSize: 11, fontWeight: "600" },
+  parcelDate: { fontSize: 11, color: COLORS.textSecond },
+  reviewSection: {
+    marginBottom: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayBorder,
+  },
+  reviewLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.text,
     marginBottom: 4,
   },
-  fragileTag: {
-    fontSize: 11,
-    color: COLORS.warning,
+  commentInput: {
+    backgroundColor: COLORS.grayLight,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 14,
+    color: COLORS.text,
+    minHeight: 100,
+    textAlignVertical: "top",
+    borderWidth: 1,
+    borderColor: COLORS.grayBorder,
   },
-  urgentTag: {
-    fontSize: 11,
-    color: COLORS.danger,
+  submitBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    padding: 16,
+    alignItems: "center",
+    marginTop: 8,
   },
-  parcelRight: {
-    alignItems: "flex-end",
-    gap: 6,
-  },
-  parcelPrice: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: COLORS.primary,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 99,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "600",
-  },
-  parcelDate: {
-    fontSize: 11,
-    color: COLORS.textSecond,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.grayBorder,
-    paddingTop: 8,
-  },
+  submitBtnText: { fontSize: 16, fontWeight: "700", color: COLORS.white },
 });
