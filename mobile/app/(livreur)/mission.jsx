@@ -84,7 +84,6 @@ export default function Mission() {
         <Text style={styles.title}>Détail de la mission</Text>
 
         {/* Trajet */}
-        {/* Trajet */}
         <TouchableOpacity style={styles.card} onPress={() => setShowMap(true)}>
           <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle}>📍 Trajet</Text>
@@ -258,6 +257,25 @@ export default function Mission() {
             Versé automatiquement après confirmation de livraison
           </Text>
         </View>
+        {/* Bouton chat — seulement si déjà assigné */}
+        {parcel?.status === "assigned" || parcel?.status === "picked_up" ? (
+          <TouchableOpacity
+            style={styles.chatBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/(livreur)/chat",
+                params: {
+                  parcelId: parcel._id,
+                  receiverId: parcel.clientId?._id || parcel.clientId,
+                  receiverName:
+                    `${parcel.clientId?.firstName || ""} ${parcel.clientId?.lastName || ""}`.trim(),
+                },
+              })
+            }
+          >
+            <Text style={styles.chatBtnText}>💬 Contacter le client</Text>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
 
       {/* Bouton accepter */}
@@ -279,6 +297,16 @@ export default function Mission() {
 }
 
 const styles = StyleSheet.create({
+  chatBtn: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 12,
+    padding: 14,
+    alignItems: "center",
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  chatBtnText: { fontSize: 14, fontWeight: "600", color: COLORS.primary },
   container: { flex: 1, backgroundColor: COLORS.grayLight },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   content: { padding: 20, paddingTop: 60, paddingBottom: 100 },

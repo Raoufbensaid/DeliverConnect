@@ -157,7 +157,7 @@ export default function TrackDetail() {
           {/* Horodatages */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>⏱️ Horodatages</Text>
-            <View style={styles.timeRow}>
+            {/* <View style={styles.timeRow}>
               <Text style={styles.timeLabel}>🚀 Départ tracking</Text>
               <Text style={styles.timeValue}>
                 {formatDate(track?.startedAt)}
@@ -168,7 +168,7 @@ export default function TrackDetail() {
               <Text style={styles.timeValue}>
                 {formatDate(track?.finishedAt)}
               </Text>
-            </View>
+            </View> */}
             <View style={styles.timeRow}>
               <Text style={styles.timeLabel}>📦 Prise en charge</Text>
               <Text style={styles.timeValue}>

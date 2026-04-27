@@ -88,6 +88,7 @@ export default function ClientHome() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState("active");
+  const [reviews, setReviews] = useState({});
 
   // Review
   const [reviewModal, setReviewModal] = useState(false);
@@ -105,17 +106,16 @@ export default function ClientHome() {
     try {
       const u = await getUser();
       setUser(u);
-      const [parcelsRes, reviewsRes] = await Promise.all([
-        api.get("/parcels/my"),
-        api.get("/reviews/my"),
-      ]);
+      const [parcelsRes] = await Promise.all([api.get("/parcels/my")]);
       setParcels(parcelsRes.data.parcels);
-      // Indexer les reviews par parcelId pour accès rapide
-      const reviewsMap = {};
-      reviewsRes.data.reviews?.forEach((r) => {
-        reviewsMap[r.parcelId] = r;
-      });
-      setReviews(reviewsMap);
+      try {
+        const reviewsRes = await api.get("/reviews/my");
+        const reviewsMap = {};
+        reviewsRes.data.reviews?.forEach((r) => {
+          reviewsMap[r.parcelId] = r;
+        });
+        setReviews(reviewsMap);
+      } catch {}
     } catch (err) {
       console.error(err);
     } finally {
@@ -196,6 +196,7 @@ export default function ClientHome() {
       });
       Alert.alert("Merci !", "Votre évaluation a été envoyée avec succès 🎉");
       setReviewModal(false);
+      fetchData();
     } catch (err) {
       Alert.alert(
         "Erreur",
@@ -233,12 +234,10 @@ export default function ClientHome() {
         onPress={() => {
           if (isDelivered) {
             if (existingReview) {
-              // Déjà évalué → afficher le détail du tracé
               router.push(
-                `/(client)/track-detail?deliveryId=${p.deliveryId || existingReview?.deliveryId}`,
+                `/(client)/track-detail?deliveryId=${existingReview?.deliveryId}`,
               );
             } else {
-              // Pas encore évalué → ouvrir le formulaire
               openReview(p);
             }
           } else {
@@ -246,6 +245,7 @@ export default function ClientHome() {
           }
         }}
       >
+        {/* Infos colis */}
         <View style={styles.parcelRow}>
           <View style={styles.parcelInfo}>
             <Text style={styles.parcelRoute}>
@@ -266,6 +266,8 @@ export default function ClientHome() {
             </View>
           </View>
         </View>
+
+        {/* Bas de carte */}
         <View
           style={{
             flexDirection: "row",
@@ -285,7 +287,6 @@ export default function ClientHome() {
           </Text>
           {isDelivered &&
             (existingReview ? (
-              // Déjà évalué → affiche les étoiles
               <View
                 style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
               >
@@ -298,7 +299,6 @@ export default function ClientHome() {
                 </Text>
               </View>
             ) : (
-              // Pas encore évalué
               <Text
                 style={{
                   fontSize: 11,
@@ -310,6 +310,26 @@ export default function ClientHome() {
               </Text>
             ))}
         </View>
+
+        {/* Bouton chat — seulement si assigned ou picked_up */}
+        {["assigned", "picked_up"].includes(p.status) && p.delivererId && (
+          <TouchableOpacity
+            style={styles.chatBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/(client)/chat",
+                params: {
+                  parcelId: p._id,
+                  receiverId: p.delivererId?._id || p.delivererId,
+                  receiverName:
+                    `${p.delivererId?.firstName || ""} ${p.delivererId?.lastName || ""}`.trim(),
+                },
+              })
+            }
+          >
+            <Text style={styles.chatBtnText}>💬 Contacter le livreur</Text>
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     );
   };
@@ -415,7 +435,6 @@ export default function ClientHome() {
           style={{ flex: 1, backgroundColor: COLORS.white }}
           contentContainerStyle={{ padding: 24, paddingTop: 60 }}
         >
-          {/* Header */}
           <TouchableOpacity
             onPress={() => setReviewModal(false)}
             style={{ marginBottom: 16 }}
@@ -458,7 +477,6 @@ export default function ClientHome() {
             </View>
           )}
 
-          {/* Note étoiles */}
           <View style={styles.reviewSection}>
             <Text style={styles.reviewLabel}>⭐ Note globale</Text>
             <StarRating
@@ -467,7 +485,6 @@ export default function ClientHome() {
             />
           </View>
 
-          {/* Livraison à temps */}
           <View style={styles.reviewSection}>
             <Text style={styles.reviewLabel}>
               ✅ Livraison effectuée à temps ?
@@ -478,7 +495,6 @@ export default function ClientHome() {
             />
           </View>
 
-          {/* colis en bon état */}
           <View style={styles.reviewSection}>
             <Text style={styles.reviewLabel}>📦 Colis en bon état ?</Text>
             <YesNo
@@ -487,7 +503,6 @@ export default function ClientHome() {
             />
           </View>
 
-          {/* Bien réceptionné */}
           <View style={styles.reviewSection}>
             <Text style={styles.reviewLabel}>
               🤝 Expéditeur a bien réceptionné le colis ?
@@ -498,7 +513,6 @@ export default function ClientHome() {
             />
           </View>
 
-          {/* Soucis */}
           <View style={styles.reviewSection}>
             <Text style={styles.reviewLabel}>
               ⚠️ La livraison s'est bien passée ?
@@ -509,7 +523,6 @@ export default function ClientHome() {
             />
           </View>
 
-          {/* Commentaire */}
           <View style={styles.reviewSection}>
             <Text style={styles.reviewLabel}>💬 Commentaire</Text>
             <TextInput
@@ -524,7 +537,6 @@ export default function ClientHome() {
             />
           </View>
 
-          {/* Bouton envoi */}
           {!existingReview && (
             <TouchableOpacity
               style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
@@ -640,6 +652,16 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99 },
   statusText: { fontSize: 11, fontWeight: "600" },
   parcelDate: { fontSize: 11, color: COLORS.textSecond },
+  chatBtn: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 10,
+    padding: 10,
+    alignItems: "center",
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  chatBtnText: { fontSize: 13, fontWeight: "600", color: COLORS.primary },
   reviewSection: {
     marginBottom: 20,
     paddingBottom: 20,

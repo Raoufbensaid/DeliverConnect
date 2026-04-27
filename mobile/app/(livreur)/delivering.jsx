@@ -237,6 +237,26 @@ export default function Delivering() {
           </Text>
         </View>
 
+        {/* Bouton chat */}
+        {parcel && (
+          <TouchableOpacity
+            style={styles.chatBtn}
+            onPress={() =>
+              router.push({
+                pathname: "/(livreur)/chat",
+                params: {
+                  parcelId: parcel._id,
+                  receiverId: parcel.clientId?._id || parcel.clientId,
+                  receiverName:
+                    `${parcel.clientId?.firstName || ""} ${parcel.clientId?.lastName || ""}`.trim(),
+                },
+              })
+            }
+          >
+            <Text style={styles.chatBtnText}>💬 Contacter le client</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Pause / Reprendre */}
         {status === "active" ? (
           <TouchableOpacity style={styles.pauseBtn} onPress={handlePause}>
@@ -289,6 +309,16 @@ export default function Delivering() {
 }
 
 const styles = StyleSheet.create({
+  chatBtn: {
+    backgroundColor: "#EEF2FF",
+    borderRadius: 12,
+    padding: 14,
+    alignItems: "center",
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#C7D2FE",
+  },
+  chatBtnText: { fontSize: 14, fontWeight: "600", color: COLORS.primary },
   container: { flex: 1, backgroundColor: COLORS.grayLight },
   centered: { flex: 1, justifyContent: "center", alignItems: "center" },
   startingText: { fontSize: 14, color: COLORS.textSecond, marginTop: 12 },
