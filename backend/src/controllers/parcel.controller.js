@@ -98,8 +98,11 @@ const createParcel = async (req, res) => {
     console.log("Body size:", req.body.size);
     console.log("Files:", req.file ? "présent" : "absent");
     console.log("Content-Type:", req.headers["content-type"]);
+    console.log("Body reçu:", req.body);
+    console.log("File reçu:", req.file ? "oui" : "non");
     const { weight, size, fragile, urgent, description, sender, recipient } =
       req.body;
+    console.log("Size extrait:", size);
 
     if (!BASE_PRICES[size]) {
       return res
