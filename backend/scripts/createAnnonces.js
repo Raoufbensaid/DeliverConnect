@@ -2,7 +2,7 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const Parcel = require("../src/models/Parcel.model");
 
-const CLIENT_ID = "69ee31ecbd21784d98064a00";
+const CLIENT_ID = "69ed4dbb86528b5499f5af0c";
 
 const annonces = [
   {

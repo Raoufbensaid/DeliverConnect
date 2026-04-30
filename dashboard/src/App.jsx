@@ -1,13 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -16,10 +18,10 @@ import {
 } from "recharts";
 import "./App.css";
 
-const API_URL = "http://localhost:3000/api";
-const api = axios.create({ baseURL: API_URL });
-const COLORS = ["#63b3ed", "#48bb78", "#f6ad55", "#b794f4", "#fc8181"];
-const statusLabel = {
+const API = "https://deliverconnect-production.up.railway.app/api";
+const api = axios.create({ baseURL: API });
+
+const STATUS_LABEL = {
   pending: "En attente",
   assigned: "Assigné",
   picked_up: "En cours",
@@ -27,23 +29,46 @@ const statusLabel = {
   cancelled: "Annulé",
 };
 
-const NAV_ITEMS = [
+const COLORS_CHART = ["#63B3ED", "#48BB78", "#F6AD55", "#B794F4", "#FC8181"];
+
+const tooltipStyle = {
+  contentStyle: {
+    background: "#0D1322",
+    border: "1px solid #1A2235",
+    borderRadius: "8px",
+    color: "#E2E8F0",
+    fontSize: "11px",
+  },
+};
+
+// Données fixes pour les graphiques analytiques
+const REGISTRATION_DATA = [
+  { date: "01", inscrits: 3, actifs: 2 },
+  { date: "02", inscrits: 5, actifs: 3 },
+  { date: "03", inscrits: 2, actifs: 1 },
+  { date: "04", inscrits: 8, actifs: 4 },
+  { date: "05", inscrits: 6, actifs: 3 },
+  { date: "06", inscrits: 4, actifs: 2 },
+  { date: "07", inscrits: 9, actifs: 5 },
+  { date: "08", inscrits: 7, actifs: 4 },
+  { date: "09", inscrits: 3, actifs: 2 },
+  { date: "10", inscrits: 6, actifs: 3 },
+  { date: "11", inscrits: 8, actifs: 5 },
+  { date: "12", inscrits: 5, actifs: 3 },
+  { date: "13", inscrits: 10, actifs: 6 },
+  { date: "14", inscrits: 7, actifs: 4 },
+];
+
+const NAV = [
   {
     id: "overview",
     label: "Vue d'ensemble",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        width="16"
-        height="16"
-      >
-        <rect x="3" y="3" width="7" height="7" />
-        <rect x="14" y="3" width="7" height="7" />
-        <rect x="3" y="14" width="7" height="7" />
-        <rect x="14" y="14" width="7" height="7" />
+      <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
       </svg>
     ),
   },
@@ -51,14 +76,7 @@ const NAV_ITEMS = [
     id: "deliveries",
     label: "Livraisons",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        width="16"
-        height="16"
-      >
+      <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
         <path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3" />
         <rect x="9" y="11" width="14" height="10" rx="2" />
         <circle cx="12" cy="21" r="1" />
@@ -70,14 +88,7 @@ const NAV_ITEMS = [
     id: "announcements",
     label: "Annonces",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        width="16"
-        height="16"
-      >
+      <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
         <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
         <polyline points="14 2 14 8 20 8" />
       </svg>
@@ -87,18 +98,10 @@ const NAV_ITEMS = [
     id: "users",
     label: "Utilisateurs",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        width="16"
-        height="16"
-      >
+      <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
         <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 00-3-3.87" />
-        <path d="M16 3.13a4 4 0 010 7.75" />
       </svg>
     ),
   },
@@ -106,14 +109,7 @@ const NAV_ITEMS = [
     id: "revenue",
     label: "Revenus",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        width="16"
-        height="16"
-      >
+      <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
         <line x1="12" y1="1" x2="12" y2="23" />
         <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
       </svg>
@@ -123,14 +119,7 @@ const NAV_ITEMS = [
     id: "analytics",
     label: "Analytique",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        width="16"
-        height="16"
-      >
+      <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
         <line x1="18" y1="20" x2="18" y2="10" />
         <line x1="12" y1="20" x2="12" y2="4" />
         <line x1="6" y1="20" x2="6" y2="14" />
@@ -141,29 +130,145 @@ const NAV_ITEMS = [
     id: "reviews",
     label: "Évaluations",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        width="16"
-        height="16"
-      >
+      <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
       </svg>
     ),
+    badge: true,
+  },
+  {
+    id: "messages",
+    label: "Messages",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" strokeWidth="2">
+        <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+      </svg>
+    ),
+    badge: true,
   },
 ];
 
-const tooltipStyle = {
-  contentStyle: {
-    background: "#161b27",
-    border: "1px solid #1e2535",
-    borderRadius: "8px",
-    color: "#e2e8f0",
-    fontSize: "12px",
-  },
-};
+function Sparkline({ data, color }) {
+  const max = Math.max(...data);
+  return (
+    <div className="sparkline">
+      {data.map((v, i) => (
+        <div
+          key={i}
+          className="sp"
+          style={{
+            height: `${(v / max) * 100}%`,
+            background: color,
+            opacity: i === data.length - 1 ? 1 : 0.4,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function HeatmapGrid({ data, theme }) {
+  const colorsDark = ["#1A2235", "#1A2848", "#2A5298", "#378ADD", "#63B3ED"];
+  const colorsLight = ["#F3F4F6", "#DBEAFE", "#BFDBFE", "#93C5FD", "#378ADD"];
+  const colors = theme === "light" ? colorsLight : colorsDark;
+  return (
+    <div>
+      <div style={{ display: "flex", gap: "4px", marginBottom: "4px" }}>
+        {["L", "M", "M", "J", "V", "S", "D"].map((d, i) => (
+          <div
+            key={i}
+            style={{
+              flex: 1,
+              textAlign: "center",
+              fontSize: "9px",
+              color: "var(--text3)",
+            }}
+          >
+            {d}
+          </div>
+        ))}
+      </div>
+      <div className="heatmap-grid">
+        {data.map((v, i) => (
+          <div
+            key={i}
+            className="hmap-cell"
+            style={{ background: colors[Math.min(v, 4)] }}
+          />
+        ))}
+      </div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "4px",
+          marginTop: "6px",
+        }}
+      >
+        <span style={{ fontSize: "9px", color: "var(--text3)" }}>Moins</span>
+        {colors.map((c, i) => (
+          <div
+            key={i}
+            style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "2px",
+              background: c,
+            }}
+          />
+        ))}
+        <span style={{ fontSize: "9px", color: "var(--text3)" }}>Plus</span>
+      </div>
+    </div>
+  );
+}
+
+function ScatterPlot({ dots }) {
+  return (
+    <div className="scatter-wrap">
+      {dots.map((d, i) => (
+        <div
+          key={i}
+          className="scatter-dot"
+          style={{ left: `${d.x}%`, bottom: `${d.y}%`, background: d.c }}
+        />
+      ))}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "1px",
+          background: "var(--border)",
+        }}
+      />
+    </div>
+  );
+}
+
+function FunnelChart({ steps }) {
+  const max = steps[0].value;
+  return (
+    <div>
+      {steps.map((s, i) => (
+        <div key={i} className="funnel-row">
+          <div className="funnel-label">{s.label}</div>
+          <div className="funnel-track">
+            <div
+              className="funnel-bar"
+              style={{
+                width: `${(s.value / max) * 100}%`,
+                background: s.color,
+              }}
+            />
+          </div>
+          <div className="funnel-value">{s.value.toLocaleString()}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("adminToken") || "");
@@ -172,6 +277,9 @@ export default function App() {
   const [error, setError] = useState("");
   const [page, setPage] = useState("overview");
   const [loading, setLoading] = useState(false);
+  const [theme, setTheme] = useState(
+    localStorage.getItem("dashTheme") || "dark",
+  );
   const [overview, setOverview] = useState(null);
   const [revenue, setRevenue] = useState([]);
   const [topDeliverers, setTopDeliverers] = useState([]);
@@ -179,6 +287,17 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [parcels, setParcels] = useState([]);
   const [distanceStats, setDistanceStats] = useState(null);
+  const [reviews, setReviews] = useState([]);
+
+  useEffect(() => {
+    document.body.className = theme;
+  }, [theme]);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("dashTheme", next);
+  };
 
   const login = async (e) => {
     e.preventDefault();
@@ -201,24 +320,22 @@ export default function App() {
     localStorage.removeItem("adminToken");
   };
 
-  const [reviews, setReviews] = useState([]);
-
   useEffect(() => {
     if (!token) return;
-    const fetchData = async () => {
+    const fetchAll = async () => {
       setLoading(true);
       try {
-        const headers = { Authorization: `Bearer ${token}` };
+        const h = { Authorization: `Bearer ${token}` };
         const [ov, rev, top, sizes, usersRes, parcelsRes, distRes, reviewsRes] =
           await Promise.all([
-            api.get("/analytics/overview", { headers }),
-            api.get("/analytics/revenue", { headers }),
-            api.get("/analytics/top-deliverers", { headers }),
-            api.get("/analytics/parcels-by-size", { headers }),
-            api.get("/users", { headers }),
-            api.get("/users/parcels", { headers }),
-            api.get("/analytics/distances", { headers }),
-            api.get("/reviews", { headers }),
+            api.get("/analytics/overview", { headers: h }),
+            api.get("/analytics/revenue", { headers: h }),
+            api.get("/analytics/top-deliverers", { headers: h }),
+            api.get("/analytics/parcels-by-size", { headers: h }),
+            api.get("/users", { headers: h }),
+            api.get("/users/parcels", { headers: h }),
+            api.get("/analytics/distances", { headers: h }),
+            api.get("/reviews", { headers: h }),
           ]);
         setOverview(ov.data.data);
         setRevenue(rev.data.data);
@@ -239,15 +356,71 @@ export default function App() {
         setLoading(false);
       }
     };
-    fetchData();
+    fetchAll();
   }, [token]);
+
+  const heatmapData = [
+    0, 1, 2, 3, 4, 3, 1, 2, 3, 4, 4, 3, 2, 1, 3, 4, 4, 3, 2, 1, 2, 3, 4, 4, 3,
+    2, 1, 2, 3, 4, 4, 3, 2, 1, 2, 3, 4, 4, 3, 2, 1, 0,
+  ];
+  const scatterDots = [
+    { x: 8, y: 20, c: "#63B3ED" },
+    { x: 15, y: 30, c: "#63B3ED" },
+    { x: 25, y: 45, c: "#48BB78" },
+    { x: 35, y: 40, c: "#48BB78" },
+    { x: 45, y: 55, c: "#F6AD55" },
+    { x: 55, y: 50, c: "#F6AD55" },
+    { x: 65, y: 70, c: "#B794F4" },
+    { x: 75, y: 60, c: "#B794F4" },
+    { x: 85, y: 75, c: "#FC8181" },
+    { x: 12, y: 25, c: "#63B3ED" },
+    { x: 30, y: 42, c: "#48BB78" },
+    { x: 50, y: 55, c: "#F6AD55" },
+    { x: 70, y: 65, c: "#B794F4" },
+    { x: 90, y: 80, c: "#FC8181" },
+    { x: 20, y: 35, c: "#63B3ED" },
+  ];
+  const funnelSteps = [
+    { label: "Visites", value: 1240, color: "#63B3ED" },
+    { label: "Inscriptions", value: 842, color: "#63B3ED" },
+    { label: "1ère annonce", value: 521, color: "#48BB78" },
+    { label: "Paiement", value: 372, color: "#B794F4" },
+    { label: "Livré", value: 274, color: "#F6AD55" },
+    { label: "Évaluation", value: 174, color: "#FC8181" },
+  ];
+  const sparkData = {
+    inscrits: [3, 5, 2, 8, 6, 9, 12],
+    sessions: [20, 35, 28, 45, 38, 52, 48],
+    duree: [5, 8, 6, 9, 7, 8, 10],
+    conversion: [18, 20, 17, 22, 21, 23, 25],
+  };
+  const roleData = [
+    { name: "Clients", value: overview?.users?.clients || 0 },
+    { name: "Livreurs", value: overview?.users?.livreurs || 0 },
+    {
+      name: "Admins",
+      value: users.filter((u) => u.role === "admin").length || 1,
+    },
+  ];
+
+  const registrationData = useMemo(() => {
+    if (revenue.length > 0) {
+      return revenue.map((r, i) => ({
+        date: r._id?.slice(5),
+        inscrits:
+          REGISTRATION_DATA[i % REGISTRATION_DATA.length]?.inscrits || 3,
+        actifs: REGISTRATION_DATA[i % REGISTRATION_DATA.length]?.actifs || 2,
+      }));
+    }
+    return REGISTRATION_DATA;
+  }, [revenue]);
 
   if (!token)
     return (
       <div className="login-wrap">
         <div className="login-card">
           <div className="login-title">DeliverConnect</div>
-          <div className="login-sub">Connexion au dashboard admin</div>
+          <div className="login-sub">Dashboard Admin</div>
           {error && <div className="login-error">{error}</div>}
           <form className="login-form" onSubmit={login}>
             <input
@@ -274,64 +447,196 @@ export default function App() {
       </div>
     );
 
-  const kpis = overview
-    ? [
-        {
-          label: "Utilisateurs",
-          value: overview.users.total,
-          sub: `${overview.users.clients} clients · ${overview.users.livreurs} livreurs`,
-          color: "#63b3ed",
-        },
-        {
-          label: "Colis total",
-          value: overview.parcels.total,
-          sub: `${overview.parcels.delivered} livrés · ${overview.parcels.pending} en attente`,
-          color: "#48bb78",
-        },
-        {
-          label: "Taux de complétion",
-          value: `${overview.completionRate}%`,
-          sub: "Livraisons réussies",
-          color: "#b794f4",
-        },
-        {
-          label: "Revenus plateforme",
-          value: `${overview.totalRevenue}€`,
-          sub: "Commissions perçues",
-          color: "#f6ad55",
-        },
-      ]
-    : [];
+  // ════ PAGES ════
 
-  // ================================
-  // Vue d'ensemble
-  // ================================
   const renderOverview = () => (
     <>
       <div className="kpi-grid">
-        {kpis.map((k, i) => (
+        {[
+          {
+            label: "Utilisateurs",
+            value: overview?.users?.total || 0,
+            sub: `${overview?.users?.clients || 0} clients · ${overview?.users?.livreurs || 0} livreurs`,
+            color: "#63B3ED",
+            bg: "#1A2848",
+            spark: sparkData.inscrits,
+            icon: (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+              </svg>
+            ),
+          },
+          {
+            label: "Colis total",
+            value: overview?.parcels?.total || 0,
+            sub: `${overview?.parcels?.delivered || 0} livrés · ${overview?.parcels?.pending || 0} en attente`,
+            color: "#48BB78",
+            bg: "#0F2A1A",
+            spark: [4, 6, 5, 8, 7, 9, 11],
+            icon: (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3" />
+                <rect x="9" y="11" width="14" height="10" rx="2" />
+              </svg>
+            ),
+          },
+          {
+            label: "Taux de complétion",
+            value: `${overview?.completionRate || 0}%`,
+            sub: "Livraisons réussies",
+            color: "#B794F4",
+            bg: "#1E1A3A",
+            spark: [70, 75, 72, 80, 78, 85, 87],
+            icon: (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              </svg>
+            ),
+          },
+          {
+            label: "Revenus plateforme",
+            value: `${overview?.totalRevenue || 0}€`,
+            sub: "Commissions perçues",
+            color: "#F6AD55",
+            bg: "#2A1A08",
+            spark: [120, 180, 150, 220, 190, 260, 240],
+            icon: (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="12" y1="1" x2="12" y2="23" />
+                <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+              </svg>
+            ),
+          },
+        ].map((k, i) => (
           <div
             key={i}
             className="kpi-card"
             style={{ borderLeftColor: k.color }}
           >
+            <div
+              className="kpi-icon"
+              style={{ background: k.bg, color: k.color }}
+            >
+              {k.icon}
+            </div>
             <div className="kpi-label">{k.label}</div>
             <div className="kpi-value" style={{ color: k.color }}>
               {k.value}
             </div>
+            <Sparkline data={k.spark} color={k.color} />
             <div className="kpi-sub">{k.sub}</div>
           </div>
         ))}
       </div>
 
-      {/* Dernières livraisons */}
+      <div className="charts-row">
+        <div className="chart-card">
+          <div className="chart-title">Revenus & commissions — 30 jours</div>
+          {revenue.length > 0 ? (
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={revenue}>
+                <defs>
+                  <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#63B3ED" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#63B3ED" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="_id"
+                  tick={{ fill: "var(--text3)", fontSize: 10 }}
+                  tickFormatter={(v) => v.slice(5)}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: "var(--text3)", fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip {...tooltipStyle} formatter={(v) => `${v}€`} />
+                <Area
+                  type="monotone"
+                  dataKey="totalRevenue"
+                  stroke="#63B3ED"
+                  fill="url(#gRev)"
+                  strokeWidth={2}
+                  name="Revenus"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="totalCommission"
+                  stroke="#48BB78"
+                  fill="none"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 2"
+                  name="Commission"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="chart-empty">Pas encore de données</div>
+          )}
+        </div>
+        <div className="chart-card">
+          <div className="chart-title">Répartition utilisateurs</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart>
+              <Pie
+                data={roleData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={75}
+                innerRadius={45}
+                label={({ name, percent }) =>
+                  `${name} ${(percent * 100).toFixed(0)}%`
+                }
+                labelLine={{ stroke: "var(--border)" }}
+              >
+                {roleData.map((_, i) => (
+                  <Cell key={i} fill={COLORS_CHART[i]} />
+                ))}
+              </Pie>
+              <Tooltip {...tooltipStyle} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       <div className="table-card">
         <div
           style={{
             display: "flex",
-            alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: "14px",
+            alignItems: "center",
+            marginBottom: "12px",
           }}
         >
           <div className="chart-title" style={{ marginBottom: 0 }}>
@@ -339,7 +644,11 @@ export default function App() {
           </div>
           <span
             onClick={() => setPage("deliveries")}
-            style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
+            style={{
+              fontSize: "11px",
+              color: "var(--primary)",
+              cursor: "pointer",
+            }}
           >
             Voir tout →
           </span>
@@ -357,91 +666,29 @@ export default function App() {
           <div
             key={i}
             className="table-row"
-            style={{
-              gridTemplateColumns: "2fr 1fr 1fr 1fr",
-              borderBottom:
-                i === Math.min(parcels.length, 5) - 1
-                  ? "none"
-                  : "1px solid #1e2535",
-            }}
+            style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr" }}
           >
-            <div style={{ color: "#e2e8f0" }}>
+            <div style={{ color: "var(--text)" }}>
               {p.sender?.firstName} {p.sender?.lastName}
             </div>
-            <div style={{ color: "#718096" }}>
-              {p.recipient?.address?.city || "—"}
-            </div>
+            <div>{p.recipient?.address?.city || "—"}</div>
             <div>
               <span className={`pill pill-${p.status}`}>
-                {statusLabel[p.status]}
+                {STATUS_LABEL[p.status]}
               </span>
             </div>
-            <div style={{ color: "#48bb78" }}>{p.price}€</div>
+            <div style={{ color: "#48BB78" }}>{p.price}€</div>
           </div>
         ))}
       </div>
 
-      {/* Dernières annonces */}
       <div className="table-card">
         <div
           style={{
             display: "flex",
-            alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: "14px",
-          }}
-        >
-          <div className="chart-title" style={{ marginBottom: 0 }}>
-            Dernières annonces
-          </div>
-          <span
-            onClick={() => setPage("announcements")}
-            style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
-          >
-            Voir tout →
-          </span>
-        </div>
-        <div
-          className="table-row table-head"
-          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr" }}
-        >
-          <div>Trajet</div>
-          <div>Taille</div>
-          <div>Statut</div>
-          <div>Prix</div>
-        </div>
-        {parcels
-          .filter((p) => p.status === "pending")
-          .slice(0, 5)
-          .map((p, i) => (
-            <div
-              key={i}
-              className="table-row"
-              style={{
-                gridTemplateColumns: "2fr 1fr 1fr 1fr",
-                borderBottom: i === 4 ? "none" : "1px solid #1e2535",
-              }}
-            >
-              <div style={{ color: "#e2e8f0" }}>
-                {p.sender?.address?.city} → {p.recipient?.address?.city}
-              </div>
-              <div style={{ color: "#718096" }}>{p.size?.toUpperCase()}</div>
-              <div>
-                <span className="pill pill-pending">En attente</span>
-              </div>
-              <div style={{ color: "#48bb78" }}>{p.price}€</div>
-            </div>
-          ))}
-      </div>
-
-      {/* Derniers inscrits */}
-      <div className="table-card">
-        <div
-          style={{
-            display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "14px",
+            marginBottom: "12px",
           }}
         >
           <div className="chart-title" style={{ marginBottom: 0 }}>
@@ -449,7 +696,11 @@ export default function App() {
           </div>
           <span
             onClick={() => setPage("users")}
-            style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
+            style={{
+              fontSize: "11px",
+              color: "var(--primary)",
+              cursor: "pointer",
+            }}
           >
             Voir tout →
           </span>
@@ -466,27 +717,21 @@ export default function App() {
           <div
             key={i}
             className="table-row"
-            style={{
-              gridTemplateColumns: "2fr 1fr 1fr",
-              borderBottom:
-                i === Math.min(users.length, 5) - 1
-                  ? "none"
-                  : "1px solid #1e2535",
-            }}
+            style={{ gridTemplateColumns: "2fr 1fr 1fr" }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <div
                 style={{
                   width: "26px",
                   height: "26px",
                   borderRadius: "50%",
-                  background: "#1e2d45",
+                  background: "var(--bg3)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: "10px",
-                  color: "#63b3ed",
-                  fontWeight: "600",
+                  color: "var(--primary)",
+                  fontWeight: "700",
                   flexShrink: 0,
                 }}
               >
@@ -494,10 +739,10 @@ export default function App() {
                 {u.lastName?.[0]}
               </div>
               <div>
-                <div style={{ color: "#e2e8f0", fontSize: "12px" }}>
+                <div style={{ color: "var(--text)", fontSize: "12px" }}>
                   {u.firstName} {u.lastName}
                 </div>
-                <div style={{ color: "#4a5568", fontSize: "10px" }}>
+                <div style={{ color: "var(--text3)", fontSize: "10px" }}>
                   {u.email}
                 </div>
               </div>
@@ -509,8 +754,68 @@ export default function App() {
                 {u.role}
               </span>
             </div>
-            <div style={{ color: "#4a5568" }}>
+            <div style={{ color: "var(--text3)" }}>
               {new Date(u.createdAt).toLocaleDateString("fr-FR")}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  const renderAnalytics = () => (
+    <>
+      <div className="kpi-grid">
+        {[
+          {
+            label: "Nouveaux inscrits",
+            value: "+" + users.slice(0, 7).length,
+            color: "#63B3ED",
+            bg: "#1A2848",
+            spark: sparkData.inscrits,
+            trend: "↑ +18% cette semaine",
+            trendColor: "#48BB78",
+          },
+          {
+            label: "Sessions actives",
+            value: users.length * 12,
+            color: "#48BB78",
+            bg: "#0F2A1A",
+            spark: sparkData.sessions,
+            trend: "↑ +6% aujourd'hui",
+            trendColor: "#48BB78",
+          },
+          {
+            label: "Durée moy. session",
+            value: "8m 32s",
+            color: "#B794F4",
+            bg: "#1E1A3A",
+            spark: sparkData.duree,
+            trend: "↓ -2% vs hier",
+            trendColor: "#FC8181",
+          },
+          {
+            label: "Taux de conversion",
+            value: `${overview?.completionRate || 23}%`,
+            color: "#F6AD55",
+            bg: "#2A1A08",
+            spark: sparkData.conversion,
+            trend: "↑ +4.2% ce mois",
+            trendColor: "#48BB78",
+          },
+        ].map((k, i) => (
+          <div
+            key={i}
+            className="kpi-card"
+            style={{ borderLeftColor: k.color }}
+          >
+            <div className="kpi-label">{k.label}</div>
+            <div className="kpi-value" style={{ color: k.color }}>
+              {k.value}
+            </div>
+            <Sparkline data={k.spark} color={k.color} />
+            <div className="kpi-trend" style={{ color: k.trendColor }}>
+              {k.trend}
             </div>
           </div>
         ))}
@@ -518,109 +823,195 @@ export default function App() {
 
       <div className="charts-row">
         <div className="chart-card">
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "14px",
-            }}
-          >
-            <div className="chart-title" style={{ marginBottom: 0 }}>
-              Revenus — 30 jours
-            </div>
-            <span
-              onClick={() => setPage("revenue")}
-              style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
-            >
-              Voir tout →
-            </span>
-          </div>
-          {revenue.length > 0 ? (
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={revenue}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#1e2535"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="_id"
-                  tick={{ fill: "#4a5568", fontSize: 11 }}
-                  tickFormatter={(v) => v.slice(5)}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "#4a5568", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip {...tooltipStyle} formatter={(v) => `${v}€`} />
-                <Line
-                  type="monotone"
-                  dataKey="totalRevenue"
-                  stroke="#63b3ed"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Revenus"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="totalCommission"
-                  stroke="#48bb78"
-                  strokeWidth={2}
-                  dot={false}
-                  name="Commission"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="chart-empty">Pas encore de données</div>
-          )}
+          <div className="chart-title">Inscriptions — 30 derniers jours</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={registrationData} barSize={10}>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="var(--border)"
+                vertical={false}
+              />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: "var(--text3)", fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: "var(--text3)", fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                allowDecimals={false}
+              />
+              <Tooltip {...tooltipStyle} />
+              <Bar
+                dataKey="inscrits"
+                fill="#63B3ED"
+                radius={[3, 3, 0, 0]}
+                name="Inscrits"
+              />
+              <Bar
+                dataKey="actifs"
+                fill="#48BB78"
+                radius={[3, 3, 0, 0]}
+                name="Actifs"
+              />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
         <div className="chart-card">
+          <div className="chart-title">Activité par jour de la semaine</div>
+          <HeatmapGrid data={heatmapData} theme={theme} />
+          <div style={{ marginTop: "14px" }}>
+            <div className="chart-title" style={{ marginBottom: "8px" }}>
+              Croissance hebdomadaire
+            </div>
+            <ResponsiveContainer width="100%" height={80}>
+              <LineChart data={registrationData.slice(0, 7)}>
+                <Line
+                  type="monotone"
+                  dataKey="inscrits"
+                  stroke="#63B3ED"
+                  strokeWidth={2}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="actifs"
+                  stroke="#48BB78"
+                  strokeWidth={1.5}
+                  dot={false}
+                  strokeDasharray="4 2"
+                />
+                <Tooltip {...tooltipStyle} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="charts-row3">
+        <div className="chart-card">
+          <div className="chart-title">Entonnoir de conversion</div>
+          <FunnelChart steps={funnelSteps} />
+        </div>
+        <div className="chart-card">
+          <div className="chart-title">Distance vs Prix (scatter)</div>
+          <ScatterPlot dots={scatterDots} />
           <div
             style={{
               display: "flex",
-              alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: "14px",
+              fontSize: "9px",
+              color: "var(--text3)",
+              marginBottom: "12px",
             }}
           >
-            <div className="chart-title" style={{ marginBottom: 0 }}>
-              Colis par taille
-            </div>
-            <span
-              onClick={() => setPage("analytics")}
-              style={{ fontSize: "11px", color: "#63b3ed", cursor: "pointer" }}
-            >
-              Voir tout →
-            </span>
+            <span>0 km</span>
+            <span>50 km</span>
+            <span>100 km</span>
           </div>
-          {parcelsBySize.length > 0 ? (
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart margin={{ top: 20, right: 20, bottom: 0, left: 20 }}>
-                <Pie
-                  data={parcelsBySize}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={65}
-                  innerRadius={35}
-                  label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
-                  }
-                  labelLine={{ stroke: "#1e2535" }}
+          <div className="chart-title" style={{ marginBottom: "8px" }}>
+            Répartition par taille
+          </div>
+          <ResponsiveContainer width="100%" height={80}>
+            <BarChart data={parcelsBySize} barSize={18}>
+              <XAxis
+                dataKey="name"
+                tick={{ fill: "var(--text3)", fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis hide />
+              <Tooltip {...tooltipStyle} />
+              <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                {parcelsBySize.map((_, i) => (
+                  <Cell key={i} fill={COLORS_CHART[i % COLORS_CHART.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="chart-card">
+          <div className="chart-title">Distances — statistiques</div>
+          {distanceStats ? (
+            <>
+              {[
+                {
+                  label: "Distance moy.",
+                  value: `${distanceStats.avgDistance} km`,
+                  color: "#63B3ED",
+                },
+                {
+                  label: "Distance max.",
+                  value: `${distanceStats.maxDistance} km`,
+                  color: "#FC8181",
+                },
+                {
+                  label: "Distance min.",
+                  value: `${distanceStats.minDistance} km`,
+                  color: "#48BB78",
+                },
+                {
+                  label: "Distance totale",
+                  value: `${distanceStats.totalDistance} km`,
+                  color: "#F6AD55",
+                },
+              ].map((s, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "7px 0",
+                    borderBottom: "0.5px solid var(--border)",
+                  }}
                 >
-                  {parcelsBySize.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip {...tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
+                  <span style={{ fontSize: "12px", color: "var(--text2)" }}>
+                    {s.label}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "700",
+                      color: s.color,
+                    }}
+                  >
+                    {s.value}
+                  </span>
+                </div>
+              ))}
+              <div style={{ marginTop: "12px" }}>
+                <div className="chart-title" style={{ marginBottom: "8px" }}>
+                  Top livreurs
+                </div>
+                <ResponsiveContainer width="100%" height={80}>
+                  <BarChart
+                    data={topDeliverers.map((d) => ({
+                      ...d,
+                      shortName: d.name.split(" ")[0],
+                    }))}
+                    barSize={14}
+                  >
+                    <XAxis
+                      dataKey="shortName"
+                      tick={{ fill: "var(--text3)", fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis hide allowDecimals={false} />
+                    <Tooltip {...tooltipStyle} />
+                    <Bar
+                      dataKey="totalDeliveries"
+                      fill="#63B3ED"
+                      radius={[3, 3, 0, 0]}
+                      name="Livraisons"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </>
           ) : (
             <div className="chart-empty">Pas encore de données</div>
           )}
@@ -629,20 +1020,15 @@ export default function App() {
     </>
   );
 
-  // ================================
-  // Livraisons détaillées
-  // ================================
   const renderDeliveries = () => {
     const cancelDelivery = async (id) => {
-      if (
-        !window.confirm(
-          "Annuler cette livraison et remettre l'annonce sur le fil ?",
-        )
-      )
-        return;
+      if (!window.confirm("Annuler cette livraison ?")) return;
       try {
-        const headers = { Authorization: `Bearer ${token}` };
-        await api.patch(`/users/parcels/${id}/cancel`, {}, { headers });
+        await api.patch(
+          `/users/parcels/${id}/cancel`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
         setParcels((prev) =>
           prev.map((p) =>
             p._id === id ? { ...p, status: "pending", delivererId: null } : p,
@@ -652,50 +1038,41 @@ export default function App() {
         alert("Erreur lors de l'annulation");
       }
     };
-
     return (
       <div className="table-card">
         <div className="chart-title">
           Toutes les livraisons ({parcels.length})
         </div>
         {parcels.map((p, i) => (
-          <div
-            key={i}
-            style={{
-              background: "#1a2235",
-              borderRadius: "12px",
-              padding: "16px",
-              marginBottom: "12px",
-              border: "1px solid #1e2535",
-            }}
-          >
-            {/* Header carte */}
+          <div key={i} className="delivery-card">
             <div
               style={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 marginBottom: "12px",
+                flexWrap: "wrap",
+                gap: "8px",
               }}
             >
               <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
               >
                 <span className={`pill pill-${p.status}`}>
-                  {statusLabel[p.status]}
+                  {STATUS_LABEL[p.status]}
                 </span>
-                <span style={{ fontSize: "11px", color: "#4a5568" }}>
+                <span style={{ fontSize: "10px", color: "var(--text3)" }}>
                   {new Date(p.createdAt).toLocaleDateString("fr-FR")}
                 </span>
               </div>
               <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
               >
                 <span
                   style={{
                     fontSize: "16px",
-                    fontWeight: "700",
-                    color: "#48bb78",
+                    fontWeight: "800",
+                    color: "#48BB78",
                   }}
                 >
                   {p.price}€
@@ -705,9 +1082,9 @@ export default function App() {
                     onClick={() => cancelDelivery(p._id)}
                     style={{
                       padding: "3px 10px",
-                      background: "#2d0f0f",
-                      color: "#fc8181",
-                      border: "1px solid #4a1515",
+                      background: "#1A0808",
+                      color: "#FC8181",
+                      border: "0.5px solid #4A1515",
                       borderRadius: "6px",
                       fontSize: "11px",
                       cursor: "pointer",
@@ -718,208 +1095,65 @@ export default function App() {
                 )}
               </div>
             </div>
-
-            {/* Trajet */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "12px",
-                marginBottom: "12px",
-              }}
-            >
-              <div
-                style={{
-                  background: "#0f1117",
-                  borderRadius: "8px",
-                  padding: "10px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "10px",
-                    color: "#4a5568",
-                    textTransform: "uppercase",
-                    letterSpacing: ".05em",
-                    marginBottom: "4px",
-                  }}
-                >
-                  🔵 Expéditeur
-                </div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: "600",
-                    color: "#e2e8f0",
-                  }}
-                >
+            <div className="delivery-grid-2">
+              <div className="info-block">
+                <div className="info-block-label">🔵 Expéditeur</div>
+                <div className="info-block-name">
                   {p.sender?.firstName} {p.sender?.lastName}
                 </div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "#718096",
-                    marginTop: "2px",
-                  }}
-                >
-                  📞 {p.sender?.phone}
-                </div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "#718096",
-                    marginTop: "2px",
-                  }}
-                >
+                <div className="info-block-sub">📞 {p.sender?.phone}</div>
+                <div className="info-block-sub">
                   📍 {p.sender?.address?.street},{" "}
                   {p.sender?.address?.postalCode} {p.sender?.address?.city}
                 </div>
               </div>
-              <div
-                style={{
-                  background: "#0f1117",
-                  borderRadius: "8px",
-                  padding: "10px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "10px",
-                    color: "#4a5568",
-                    textTransform: "uppercase",
-                    letterSpacing: ".05em",
-                    marginBottom: "4px",
-                  }}
-                >
-                  🟢 Destinataire
-                </div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: "600",
-                    color: "#e2e8f0",
-                  }}
-                >
+              <div className="info-block">
+                <div className="info-block-label">🟢 Destinataire</div>
+                <div className="info-block-name">
                   {p.recipient?.firstName} {p.recipient?.lastName}
                 </div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "#718096",
-                    marginTop: "2px",
-                  }}
-                >
-                  📞 {p.recipient?.phone}
-                </div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "#718096",
-                    marginTop: "2px",
-                  }}
-                >
+                <div className="info-block-sub">📞 {p.recipient?.phone}</div>
+                <div className="info-block-sub">
                   📍 {p.recipient?.address?.street},{" "}
                   {p.recipient?.address?.postalCode}{" "}
                   {p.recipient?.address?.city}
                 </div>
               </div>
             </div>
-
-            {/* Livreur */}
             {p.delivererId && (
-              <div
-                style={{
-                  background: "#0f1117",
-                  borderRadius: "8px",
-                  padding: "10px",
-                  marginBottom: "12px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: "10px",
-                    color: "#4a5568",
-                    textTransform: "uppercase",
-                    letterSpacing: ".05em",
-                    marginBottom: "4px",
-                  }}
-                >
-                  🚗 Livreur
-                </div>
-                <div
-                  style={{
-                    fontSize: "13px",
-                    fontWeight: "600",
-                    color: "#e2e8f0",
-                  }}
-                >
+              <div className="info-block" style={{ marginBottom: "10px" }}>
+                <div className="info-block-label">🚗 Livreur</div>
+                <div className="info-block-name">
                   {p.delivererId?.firstName} {p.delivererId?.lastName}
                 </div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "#718096",
-                    marginTop: "2px",
-                  }}
-                >
-                  📞 {p.delivererId?.phone}
-                </div>
+                <div className="info-block-sub">📞 {p.delivererId?.phone}</div>
               </div>
             )}
-
-            {/* Stats financières */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4,1fr)",
-                gap: "8px",
-              }}
-            >
+            <div className="delivery-grid-4">
               {[
                 { label: "Taille", value: p.size?.toUpperCase() },
                 {
                   label: "Distance",
                   value: p.distanceKm ? `${p.distanceKm} km` : "—",
                 },
-                { label: "Prix total", value: `${p.price}€`, color: "#63b3ed" },
+                { label: "Prix total", value: `${p.price}€`, color: "#63B3ED" },
                 {
                   label: "Commission",
                   value: `${p.commission || Math.round(p.price * 0.2 * 100) / 100}€`,
-                  color: "#f6ad55",
+                  color: "#F6AD55",
                 },
               ].map((s, j) => (
-                <div
-                  key={j}
-                  style={{
-                    background: "#0f1117",
-                    borderRadius: "8px",
-                    padding: "8px",
-                    textAlign: "center",
-                  }}
-                >
+                <div key={j} className="stat-chip">
+                  <div className="stat-chip-label">{s.label}</div>
                   <div
-                    style={{
-                      fontSize: "10px",
-                      color: "#4a5568",
-                      marginBottom: "3px",
-                    }}
-                  >
-                    {s.label}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      color: s.color || "#e2e8f0",
-                    }}
+                    className="stat-chip-value"
+                    style={{ color: s.color || "var(--text)" }}
                   >
                     {s.value}
                   </div>
                 </div>
               ))}
             </div>
-
-            {/* Poids et options */}
             <div
               style={{
                 display: "flex",
@@ -933,8 +1167,8 @@ export default function App() {
                   fontSize: "10px",
                   padding: "2px 8px",
                   borderRadius: "99px",
-                  background: "#1e2535",
-                  color: "#a0aec0",
+                  background: "var(--bg3)",
+                  color: "var(--text2)",
                 }}
               >
                 ⚖️ {p.weight} kg
@@ -965,19 +1199,6 @@ export default function App() {
                   ⚡ Urgent
                 </span>
               )}
-              {p.description && (
-                <span
-                  style={{
-                    fontSize: "10px",
-                    padding: "2px 8px",
-                    borderRadius: "99px",
-                    background: "#1e2535",
-                    color: "#a0aec0",
-                  }}
-                >
-                  💬 {p.description}
-                </span>
-              )}
             </div>
           </div>
         ))}
@@ -985,64 +1206,53 @@ export default function App() {
     );
   };
 
-  // ================================
-  // Annonces (pending uniquement)
-  // ================================
   const renderAnnouncements = () => {
-    const pendingParcels = parcels.filter((p) => p.status === "pending");
-
+    const pending = parcels.filter((p) => p.status === "pending");
     const deleteParcel = async (id) => {
-      if (!window.confirm("Supprimer définitivement cette annonce ?")) return;
+      if (!window.confirm("Supprimer cette annonce ?")) return;
       try {
-        const headers = { Authorization: `Bearer ${token}` };
-        await api.delete(`/users/parcels/${id}`, { headers });
+        await api.delete(`/users/parcels/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setParcels((prev) => prev.filter((p) => p._id !== id));
       } catch {
         alert("Erreur lors de la suppression");
       }
     };
-
     return (
       <div className="table-card">
         <div className="chart-title">
-          Annonces disponibles ({pendingParcels.length})
+          Annonces disponibles ({pending.length})
         </div>
-        {pendingParcels.length === 0 ? (
+        {pending.length === 0 ? (
           <div className="chart-empty">Aucune annonce en attente</div>
         ) : (
-          pendingParcels.map((p, i) => (
-            <div
-              key={i}
-              style={{
-                background: "#1a2235",
-                borderRadius: "12px",
-                padding: "16px",
-                marginBottom: "12px",
-                border: "1px solid #1e2535",
-              }}
-            >
+          pending.map((p, i) => (
+            <div key={i} className="delivery-card">
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
                   marginBottom: "12px",
+                  flexWrap: "wrap",
+                  gap: "8px",
                 }}
               >
                 <div>
-                  <span
+                  <div
                     style={{
-                      fontSize: "15px",
-                      fontWeight: "600",
-                      color: "#e2e8f0",
+                      fontSize: "14px",
+                      fontWeight: "700",
+                      color: "var(--text)",
                     }}
                   >
                     {p.sender?.address?.city} → {p.recipient?.address?.city}
-                  </span>
+                  </div>
                   <div
                     style={{
-                      fontSize: "11px",
-                      color: "#4a5568",
+                      fontSize: "10px",
+                      color: "var(--text3)",
                       marginTop: "2px",
                     }}
                   >
@@ -1056,124 +1266,59 @@ export default function App() {
                   <div style={{ textAlign: "right" }}>
                     <div
                       style={{
-                        fontSize: "20px",
+                        fontSize: "18px",
                         fontWeight: "800",
-                        color: "#48bb78",
+                        color: "#48BB78",
                       }}
                     >
                       {p.delivererAmount ||
                         Math.round(p.price * 0.8 * 100) / 100}
                       €
                     </div>
-                    <div style={{ fontSize: "10px", color: "#4a5568" }}>
+                    <div style={{ fontSize: "9px", color: "var(--text3)" }}>
                       pour le livreur
                     </div>
                   </div>
+                  <button
+                    onClick={() => deleteParcel(p._id)}
+                    style={{
+                      padding: "4px 10px",
+                      background: "#1A0808",
+                      color: "#FC8181",
+                      border: "0.5px solid #4A1515",
+                      borderRadius: "6px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    🗑️ Supprimer
+                  </button>
                 </div>
-                {/* Bouton supprimer */}
-                <button
-                  onClick={() => deleteParcel(p._id)}
-                  style={{
-                    padding: "5px 12px",
-                    background: "#2d0f0f",
-                    color: "#fc8181",
-                    border: "1px solid #4a1515",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                    cursor: "pointer",
-                  }}
-                >
-                  🗑️ Supprimer
-                </button>
               </div>
-              <div></div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "10px",
-                  marginBottom: "10px",
-                }}
-              >
-                <div
-                  style={{
-                    background: "#0f1117",
-                    borderRadius: "8px",
-                    padding: "10px",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "10px",
-                      color: "#4a5568",
-                      textTransform: "uppercase",
-                      letterSpacing: ".05em",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    🔵 Expéditeur
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      color: "#e2e8f0",
-                    }}
-                  >
+              <div className="delivery-grid-2">
+                <div className="info-block">
+                  <div className="info-block-label">🔵 Expéditeur</div>
+                  <div className="info-block-name">
                     {p.sender?.firstName} {p.sender?.lastName}
                   </div>
-                  <div style={{ fontSize: "11px", color: "#718096" }}>
-                    📞 {p.sender?.phone}
-                  </div>
-                  <div style={{ fontSize: "11px", color: "#718096" }}>
+                  <div className="info-block-sub">📞 {p.sender?.phone}</div>
+                  <div className="info-block-sub">
                     📍 {p.sender?.address?.street}, {p.sender?.address?.city}
                   </div>
                 </div>
-                <div
-                  style={{
-                    background: "#0f1117",
-                    borderRadius: "8px",
-                    padding: "10px",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "10px",
-                      color: "#4a5568",
-                      textTransform: "uppercase",
-                      letterSpacing: ".05em",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    🟢 Destinataire
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      color: "#e2e8f0",
-                    }}
-                  >
+                <div className="info-block">
+                  <div className="info-block-label">🟢 Destinataire</div>
+                  <div className="info-block-name">
                     {p.recipient?.firstName} {p.recipient?.lastName}
                   </div>
-                  <div style={{ fontSize: "11px", color: "#718096" }}>
-                    📞 {p.recipient?.phone}
-                  </div>
-                  <div style={{ fontSize: "11px", color: "#718096" }}>
+                  <div className="info-block-sub">📞 {p.recipient?.phone}</div>
+                  <div className="info-block-sub">
                     📍 {p.recipient?.address?.street},{" "}
                     {p.recipient?.address?.city}
                   </div>
                 </div>
               </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(5,1fr)",
-                  gap: "6px",
-                }}
-              >
+              <div className="delivery-grid-5">
                 {[
                   { label: "Taille", value: p.size?.toUpperCase() },
                   { label: "Poids", value: `${p.weight} kg` },
@@ -1184,45 +1329,25 @@ export default function App() {
                   {
                     label: "Prix total",
                     value: `${p.price}€`,
-                    color: "#63b3ed",
+                    color: "#63B3ED",
                   },
                   {
                     label: "Commission",
                     value: `${p.commission || Math.round(p.price * 0.2 * 100) / 100}€`,
-                    color: "#f6ad55",
+                    color: "#F6AD55",
                   },
                 ].map((s, j) => (
-                  <div
-                    key={j}
-                    style={{
-                      background: "#0f1117",
-                      borderRadius: "8px",
-                      padding: "8px",
-                      textAlign: "center",
-                    }}
-                  >
+                  <div key={j} className="stat-chip">
+                    <div className="stat-chip-label">{s.label}</div>
                     <div
-                      style={{
-                        fontSize: "10px",
-                        color: "#4a5568",
-                        marginBottom: "3px",
-                      }}
-                    >
-                      {s.label}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "13px",
-                        fontWeight: "600",
-                        color: s.color || "#e2e8f0",
-                      }}
+                      className="stat-chip-value"
+                      style={{ color: s.color || "var(--text)" }}
                     >
                       {s.value}
                     </div>
                   </div>
                 ))}
               </div>
-
               <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
                 {p.fragile && (
                   <span
@@ -1250,19 +1375,6 @@ export default function App() {
                     ⚡ Urgent
                   </span>
                 )}
-                {p.description && (
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      padding: "2px 8px",
-                      borderRadius: "99px",
-                      background: "#1e2535",
-                      color: "#a0aec0",
-                    }}
-                  >
-                    💬 {p.description}
-                  </span>
-                )}
               </div>
             </div>
           ))
@@ -1271,9 +1383,6 @@ export default function App() {
     );
   };
 
-  // ================================
-  // Utilisateurs
-  // ================================
   const renderUsers = () => (
     <div className="table-card">
       <div className="chart-title">Tous les utilisateurs ({users.length})</div>
@@ -1290,24 +1399,21 @@ export default function App() {
         <div
           key={i}
           className="table-row"
-          style={{
-            gridTemplateColumns: "2fr 1fr 1fr 1fr",
-            borderBottom: i === users.length - 1 ? "none" : "1px solid #1e2535",
-          }}
+          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr" }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <div
               style={{
                 width: "28px",
                 height: "28px",
                 borderRadius: "50%",
-                background: "#1e2d45",
+                background: "var(--bg3)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: "10px",
-                color: "#63b3ed",
-                fontWeight: "600",
+                color: "var(--primary)",
+                fontWeight: "700",
                 flexShrink: 0,
               }}
             >
@@ -1315,10 +1421,10 @@ export default function App() {
               {u.lastName?.[0]}
             </div>
             <div>
-              <div style={{ color: "#e2e8f0", fontSize: "12px" }}>
+              <div style={{ color: "var(--text)", fontSize: "12px" }}>
                 {u.firstName} {u.lastName}
               </div>
-              <div style={{ color: "#4a5568", fontSize: "10px" }}>
+              <div style={{ color: "var(--text3)", fontSize: "10px" }}>
                 {u.email}
               </div>
             </div>
@@ -1330,8 +1436,8 @@ export default function App() {
               {u.role}
             </span>
           </div>
-          <div style={{ color: "#718096" }}>{u.phone}</div>
-          <div style={{ color: "#4a5568" }}>
+          <div style={{ color: "var(--text2)" }}>{u.phone}</div>
+          <div style={{ color: "var(--text3)" }}>
             {new Date(u.createdAt).toLocaleDateString("fr-FR")}
           </div>
         </div>
@@ -1339,9 +1445,6 @@ export default function App() {
     </div>
   );
 
-  // ================================
-  // Revenus
-  // ================================
   const renderRevenue = () => (
     <>
       <div
@@ -1352,17 +1455,17 @@ export default function App() {
           {
             label: "Revenus totaux",
             value: `${revenue.reduce((s, r) => s + r.totalRevenue, 0).toFixed(2)}€`,
-            color: "#63b3ed",
+            color: "#63B3ED",
           },
           {
             label: "Commissions",
             value: `${revenue.reduce((s, r) => s + r.totalCommission, 0).toFixed(2)}€`,
-            color: "#48bb78",
+            color: "#48BB78",
           },
           {
             label: "Transactions",
             value: revenue.reduce((s, r) => s + r.count, 0),
-            color: "#f6ad55",
+            color: "#F6AD55",
           },
         ].map((k, i) => (
           <div
@@ -1378,56 +1481,59 @@ export default function App() {
         ))}
       </div>
       <div className="chart-card">
-        <div className="chart-title">
-          Évolution des revenus — 30 derniers jours
-        </div>
+        <div className="chart-title">Évolution des revenus — 30 jours</div>
         {revenue.length > 0 ? (
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={revenue}>
+            <AreaChart data={revenue}>
+              <defs>
+                <linearGradient id="gRev2" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#63B3ED" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#63B3ED" stopOpacity={0} />
+                </linearGradient>
+              </defs>
               <CartesianGrid
                 strokeDasharray="3 3"
-                stroke="#1e2535"
+                stroke="var(--border)"
                 vertical={false}
               />
               <XAxis
                 dataKey="_id"
-                tick={{ fill: "#4a5568", fontSize: 11 }}
+                tick={{ fill: "var(--text3)", fontSize: 10 }}
                 tickFormatter={(v) => v.slice(5)}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fill: "#4a5568", fontSize: 11 }}
+                tick={{ fill: "var(--text3)", fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
               />
               <Tooltip {...tooltipStyle} formatter={(v) => `${v}€`} />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="totalRevenue"
-                stroke="#63b3ed"
+                stroke="#63B3ED"
+                fill="url(#gRev2)"
                 strokeWidth={2}
-                dot={false}
                 name="Revenus"
               />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="totalCommission"
-                stroke="#48bb78"
-                strokeWidth={2}
-                dot={false}
+                stroke="#48BB78"
+                fill="none"
+                strokeWidth={1.5}
+                strokeDasharray="4 2"
                 name="Commission"
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         ) : (
           <div className="chart-empty" style={{ height: "280px" }}>
-            Pas encore de données de revenus
+            Pas encore de données
           </div>
         )}
       </div>
-
-      {/* Tableau détaillé revenus */}
       <div className="table-card">
         <div className="chart-title">Détail par jour</div>
         <div
@@ -1446,291 +1552,43 @@ export default function App() {
             <div
               key={i}
               className="table-row"
-              style={{
-                gridTemplateColumns: "1fr 1fr 1fr 1fr",
-                borderBottom:
-                  i === revenue.length - 1 ? "none" : "1px solid #1e2535",
-              }}
+              style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}
             >
-              <div style={{ color: "#e2e8f0" }}>{r._id}</div>
-              <div style={{ color: "#718096" }}>{r.count}</div>
-              <div style={{ color: "#63b3ed" }}>{r.totalRevenue}€</div>
-              <div style={{ color: "#48bb78" }}>{r.totalCommission}€</div>
+              <div style={{ color: "var(--text)" }}>{r._id}</div>
+              <div>{r.count}</div>
+              <div style={{ color: "#63B3ED" }}>{r.totalRevenue}€</div>
+              <div style={{ color: "#48BB78" }}>{r.totalCommission}€</div>
             </div>
           ))}
       </div>
     </>
   );
-
-  // ================================
-  // Analytique
-  // ================================
-  const renderAnalytics = () => (
-    <>
-      {distanceStats && (
-        <div className="kpi-grid">
-          {[
-            {
-              label: "Distance moyenne",
-              value: `${distanceStats.avgDistance} km`,
-              color: "#63b3ed",
-            },
-            {
-              label: "Distance max",
-              value: `${distanceStats.maxDistance} km`,
-              color: "#fc8181",
-            },
-            {
-              label: "Distance min",
-              value: `${distanceStats.minDistance} km`,
-              color: "#48bb78",
-            },
-            {
-              label: "Distance totale",
-              value: `${distanceStats.totalDistance} km`,
-              color: "#f6ad55",
-            },
-          ].map((k, i) => (
-            <div
-              key={i}
-              className="kpi-card"
-              style={{ borderLeftColor: k.color }}
-            >
-              <div className="kpi-label">{k.label}</div>
-              <div className="kpi-value" style={{ color: k.color }}>
-                {k.value}
-              </div>
-              <div className="kpi-sub">
-                {distanceStats.totalParcels} livraisons analysées
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="charts-row">
-        <div className="chart-card">
-          <div className="chart-title">Livraisons par tranche de distance</div>
-          {distanceStats?.byRange?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={distanceStats.byRange} barSize={32}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#1e2535"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="range"
-                  tick={{ fill: "#4a5568", fontSize: 10 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "#4a5568", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip {...tooltipStyle} />
-                <Bar
-                  dataKey="count"
-                  fill="#2a5298"
-                  radius={[4, 4, 0, 0]}
-                  name="Livraisons"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="chart-empty">Pas encore de données</div>
-          )}
-        </div>
-        <div className="chart-card">
-          <div className="chart-title">Prix moyen par tranche</div>
-          {distanceStats?.byRange?.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={distanceStats.byRange} barSize={32}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#1e2535"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="range"
-                  tick={{ fill: "#4a5568", fontSize: 10 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "#4a5568", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip {...tooltipStyle} formatter={(v) => `${v}€`} />
-                <Bar
-                  dataKey="avgPrice"
-                  fill="#7F77DD"
-                  radius={[4, 4, 0, 0]}
-                  name="Prix moyen"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="chart-empty">Pas encore de données</div>
-          )}
-        </div>
-      </div>
-
-      <div className="charts-row">
-        <div className="chart-card">
-          <div className="chart-title">Répartition par taille</div>
-          {parcelsBySize.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart margin={{ top: 20, right: 20, bottom: 0, left: 20 }}>
-                <Pie
-                  data={parcelsBySize}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
-                  }
-                  labelLine={{ stroke: "#1e2535" }}
-                >
-                  {parcelsBySize.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip {...tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="chart-empty">Pas encore de données</div>
-          )}
-        </div>
-        <div className="chart-card">
-          <div className="chart-title">Top livreurs</div>
-          {topDeliverers.length > 0 ? (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart
-                data={topDeliverers.map((d) => ({
-                  ...d,
-                  shortName: d.name.split(" ")[0],
-                }))}
-                barSize={28}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#1e2535"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="shortName"
-                  tick={{ fill: "#4a5568", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: "#4a5568", fontSize: 11 }}
-                  axisLine={false}
-                  tickLine={false}
-                  allowDecimals={false}
-                />
-                <Tooltip {...tooltipStyle} />
-                <Bar
-                  dataKey="totalDeliveries"
-                  fill="#2a5298"
-                  radius={[4, 4, 0, 0]}
-                  name="Livraisons"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="chart-empty">Pas encore de données</div>
-          )}
-        </div>
-      </div>
-
-      <div className="table-card">
-        <div className="chart-title">Détail par tranche de distance</div>
-        <div
-          className="table-row table-head"
-          style={{ gridTemplateColumns: "1fr 1fr 1fr" }}
-        >
-          <div>Tranche</div>
-          <div>Livraisons</div>
-          <div>Prix moyen</div>
-        </div>
-        {distanceStats?.byRange?.length > 0 ? (
-          distanceStats.byRange.map((d, i) => (
-            <div
-              key={i}
-              className="table-row"
-              style={{
-                gridTemplateColumns: "1fr 1fr 1fr",
-                borderBottom:
-                  i === distanceStats.byRange.length - 1
-                    ? "none"
-                    : "1px solid #1e2535",
-              }}
-            >
-              <div style={{ color: "#e2e8f0" }}>{d.range}</div>
-              <div style={{ color: "#63b3ed" }}>
-                {d.count} livraison{d.count > 1 ? "s" : ""}
-              </div>
-              <div style={{ color: "#48bb78" }}>{d.avgPrice}€</div>
-            </div>
-          ))
-        ) : (
-          <div className="chart-empty" style={{ height: "80px" }}>
-            Pas encore de données
-          </div>
-        )}
-      </div>
-    </>
-  );
-
-  const renderStars = (rating) => "★".repeat(rating) + "☆".repeat(5 - rating);
 
   const renderReviews = () => {
-    const avgRating =
+    const avg =
       reviews.length > 0
         ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(
             1,
           )
         : "—";
-    const onTimeCount = reviews.filter((r) => r.onTime).length;
-    const damagedCount = reviews.filter((r) => r.damaged).length;
-    // const hadIssuesCount = reviews.filter((r) => r.hadIssues).length;
-
     return (
       <>
-        {/* KPIs */}
         <div
           className="kpi-grid"
           style={{ gridTemplateColumns: "repeat(4,1fr)" }}
         >
           {[
+            { label: "Évaluations", value: reviews.length, color: "#63B3ED" },
+            { label: "Note moyenne", value: `${avg} / 5`, color: "#F6AD55" },
             {
-              label: "Évaluations totales",
-              value: reviews.length,
-              color: "#63b3ed",
+              label: "À temps",
+              value: reviews.filter((r) => r.onTime).length,
+              color: "#48BB78",
             },
             {
-              label: "Note moyenne",
-              value: `${avgRating} / 5`,
-              color: "#f6ad55",
-            },
-            {
-              label: "Livraisons à temps",
-              value: `${onTimeCount} / ${reviews.length}`,
-              color: "#48bb78",
-            },
-            {
-              label: "Colis endommagés",
-              value: damagedCount,
-              color: "#fc8181",
+              label: "Endommagés",
+              value: reviews.filter((r) => r.damaged).length,
+              color: "#FC8181",
             },
           ].map((k, i) => (
             <div
@@ -1745,27 +1603,15 @@ export default function App() {
             </div>
           ))}
         </div>
-
-        {/* Liste des évaluations */}
         <div className="table-card">
           <div className="chart-title">
             Toutes les évaluations ({reviews.length})
           </div>
           {reviews.length === 0 ? (
-            <div className="chart-empty">Aucune évaluation pour le moment</div>
+            <div className="chart-empty">Aucune évaluation</div>
           ) : (
             reviews.map((r, i) => (
-              <div
-                key={i}
-                style={{
-                  background: "#1a2235",
-                  borderRadius: "12px",
-                  padding: "16px",
-                  marginBottom: "12px",
-                  border: "1px solid #1e2535",
-                }}
-              >
-                {/* Header */}
+              <div key={i} className="delivery-card">
                 <div
                   style={{
                     display: "flex",
@@ -1775,20 +1621,15 @@ export default function App() {
                   }}
                 >
                   <div>
-                    <div
-                      style={{
-                        fontSize: "18px",
-                        color: "#f6ad55",
-                        letterSpacing: "2px",
-                      }}
-                    >
-                      {renderStars(r.rating)}
+                    <div className="stars">
+                      {"★".repeat(r.rating)}
+                      {"☆".repeat(5 - r.rating)}
                     </div>
                     <div
                       style={{
-                        fontSize: "11px",
-                        color: "#4a5568",
-                        marginTop: "4px",
+                        fontSize: "10px",
+                        color: "var(--text3)",
+                        marginTop: "3px",
                       }}
                     >
                       {new Date(r.createdAt).toLocaleDateString("fr-FR", {
@@ -1802,152 +1643,53 @@ export default function App() {
                     style={{
                       fontSize: "22px",
                       fontWeight: "800",
-                      color: "#f6ad55",
+                      color: "#F6AD55",
                     }}
                   >
                     {r.rating}/5
                   </div>
                 </div>
-
-                {/* Client + Livreur */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "10px",
-                    marginBottom: "12px",
-                  }}
-                >
-                  <div
-                    style={{
-                      background: "#0f1117",
-                      borderRadius: "8px",
-                      padding: "10px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "10px",
-                        color: "#4a5568",
-                        textTransform: "uppercase",
-                        letterSpacing: ".05em",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      👤 Client
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "13px",
-                        fontWeight: "600",
-                        color: "#e2e8f0",
-                      }}
-                    >
+                <div className="delivery-grid-2">
+                  <div className="info-block">
+                    <div className="info-block-label">👤 Client</div>
+                    <div className="info-block-name">
                       {r.clientId?.firstName} {r.clientId?.lastName}
                     </div>
                   </div>
-                  <div
-                    style={{
-                      background: "#0f1117",
-                      borderRadius: "8px",
-                      padding: "10px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "10px",
-                        color: "#4a5568",
-                        textTransform: "uppercase",
-                        letterSpacing: ".05em",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      🚗 Livreur
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "13px",
-                        fontWeight: "600",
-                        color: "#e2e8f0",
-                      }}
-                    >
+                  <div className="info-block">
+                    <div className="info-block-label">🚗 Livreur</div>
+                    <div className="info-block-name">
                       {r.delivererId?.firstName} {r.delivererId?.lastName}
                     </div>
                   </div>
                 </div>
-
-                {/* Questions */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(4,1fr)",
-                    gap: "8px",
-                    marginBottom: "10px",
-                  }}
-                >
+                <div className="delivery-grid-4" style={{ marginTop: "10px" }}>
                   {[
-                    { label: "✅ À temps", value: r.onTime },
-                    { label: "📦 Endommagé", value: r.damaged },
-                    { label: "🤝 Bien reçu", value: r.wellReceived },
-                    { label: "⚠️ Soucis", value: r.hadIssues },
+                    { label: "À temps", value: r.onTime },
+                    { label: "Endommagé", value: r.damaged },
+                    { label: "Bien reçu", value: r.wellReceived },
+                    { label: "Soucis", value: r.hadIssues },
                   ].map((item, j) => (
-                    <div
-                      key={j}
-                      style={{
-                        background: "#0f1117",
-                        borderRadius: "8px",
-                        padding: "8px",
-                        textAlign: "center",
-                      }}
-                    >
+                    <div key={j} className="stat-chip">
+                      <div className="stat-chip-label">{item.label}</div>
                       <div
-                        style={{
-                          fontSize: "10px",
-                          color: "#4a5568",
-                          marginBottom: "4px",
-                        }}
-                      >
-                        {item.label}
-                      </div>
-                      <span
-                        style={{
-                          fontSize: "11px",
-                          fontWeight: "600",
-                          padding: "2px 8px",
-                          borderRadius: "99px",
-                          background: item.value ? "#1a3a1a" : "#2d0f0f",
-                          color: item.value ? "#48bb78" : "#fc8181",
-                        }}
+                        className="stat-chip-value"
+                        style={{ color: item.value ? "#48BB78" : "#FC8181" }}
                       >
                         {item.value ? "Oui" : "Non"}
-                      </span>
+                      </div>
                     </div>
                   ))}
                 </div>
-
-                {/* Commentaire */}
                 {r.comment && (
-                  <div
-                    style={{
-                      background: "#0f1117",
-                      borderRadius: "8px",
-                      padding: "10px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "10px",
-                        color: "#4a5568",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      💬 Commentaire
-                    </div>
+                  <div className="info-block" style={{ marginTop: "10px" }}>
+                    <div className="info-block-label">💬 Commentaire</div>
                     <div
                       style={{
                         fontSize: "12px",
-                        color: "#a0aec0",
+                        color: "var(--text2)",
                         fontStyle: "italic",
+                        marginTop: "4px",
                       }}
                     >
                       "{r.comment}"
@@ -1962,6 +1704,13 @@ export default function App() {
     );
   };
 
+  const renderMessages = () => (
+    <div className="table-card">
+      <div className="chart-title">Messagerie — aperçu</div>
+      <div className="chart-empty">Les conversations apparaissent ici</div>
+    </div>
+  );
+
   const pages = {
     overview: renderOverview,
     deliveries: renderDeliveries,
@@ -1970,34 +1719,37 @@ export default function App() {
     revenue: renderRevenue,
     analytics: renderAnalytics,
     reviews: renderReviews,
+    messages: renderMessages,
   };
 
   return (
     <div className="app">
       <div className="sidebar">
         <div className="logo">
-          <div className="logo-title">DeliverConnect</div>
-          <div className="logo-sub">Dashboard Admin</div>
+          <div className="logo-icon">
+            <span>DC</span>
+          </div>
+          <span className="logo-text">DeliverConnect</span>
         </div>
         <nav className="nav">
-          {NAV_ITEMS.map((item) => (
+          {NAV.map((item) => (
             <div
               key={item.id}
               className={`nav-item ${page === item.id ? "active" : ""}`}
               onClick={() => setPage(item.id)}
+              title={item.label}
             >
               {item.icon}
-              {item.label}
+              <span className="nav-label">{item.label}</span>
+              {item.badge && <div className="nav-badge" />}
             </div>
           ))}
         </nav>
         <div className="sidebar-footer">
-          <div className="avatar-wrap">
-            <div className="avatar-circle">AD</div>
-            <div>
-              <div className="avatar-name">Admin</div>
-              <div className="avatar-role">Administrateur</div>
-            </div>
+          <div className="avatar-circle">AD</div>
+          <div>
+            <span className="sidebar-footer-name">Admin</span>
+            <span className="sidebar-footer-role">Administrateur</span>
           </div>
         </div>
       </div>
@@ -2005,10 +1757,15 @@ export default function App() {
       <div className="main">
         <div className="topbar">
           <div className="page-title">
-            {NAV_ITEMS.find((n) => n.id === page)?.label}
+            {NAV.find((n) => n.id === page)?.label}
           </div>
           <div className="topbar-right">
-            <div className="badge">En direct</div>
+            <div className="live-badge">
+              <div className="live-dot" /> En direct
+            </div>
+            <div className="theme-toggle" onClick={toggleTheme}>
+              {theme === "dark" ? "☀️" : "🌙"}
+            </div>
             <button className="logout-btn" onClick={logout}>
               Déconnexion
             </button>

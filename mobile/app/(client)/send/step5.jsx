@@ -69,6 +69,7 @@ export default function Step5() {
     }
     setLoading(true);
     try {
+      // 1 — Créer le colis
       const formData = new FormData();
       formData.append("size", params.size);
       formData.append(
@@ -88,6 +89,8 @@ export default function Step5() {
             street: params.senderStreet,
             city: params.senderCity,
             postalCode: params.senderPostalCode,
+            lat: parseFloat(params.senderLat || 0),
+            lng: parseFloat(params.senderLng || 0),
           },
         }),
       );
@@ -101,6 +104,8 @@ export default function Step5() {
             street: params.recipientStreet,
             city: params.recipientCity,
             postalCode: params.recipientPostalCode,
+            lat: parseFloat(params.recipientLat || 0),
+            lng: parseFloat(params.recipientLng || 0),
           },
         }),
       );
@@ -110,13 +115,25 @@ export default function Step5() {
         name: "parcel.jpg",
       });
 
-      const res = await api.post("/parcels", formData, {
+      const parcelRes = await api.post("/parcels", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+      });
+      const parcelId = parcelRes.data.parcel._id;
+
+      // 2 — Créer le PaymentIntent
+      const paymentRes = await api.post("/payments/create-intent", {
+        parcelId,
+      });
+
+      // 3 — Confirmer le paiement avec la carte de test via notre backend
+      await api.post("/payments/confirm-test", {
+        parcelId,
+        paymentIntentId: paymentRes.data.paymentIntentId,
       });
 
       router.replace({
         pathname: "/(client)/send/confirmation",
-        params: { parcelId: res.data.parcel._id },
+        params: { parcelId },
       });
     } catch (err) {
       Alert.alert(
