@@ -93,8 +93,11 @@ const estimatePrice = async (req, res) => {
 // ================================
 const createParcel = async (req, res) => {
   try {
-    console.log("Body reçu:", req.body);
-    console.log("Size reçu:", req.body.size);
+    console.log("=== CREATE PARCEL ===");
+    console.log("Body keys:", Object.keys(req.body));
+    console.log("Body size:", req.body.size);
+    console.log("Files:", req.file ? "présent" : "absent");
+    console.log("Content-Type:", req.headers["content-type"]);
     const { weight, size, fragile, urgent, description, sender, recipient } =
       req.body;
 
