@@ -124,6 +124,7 @@ export default function Step5() {
       const paymentRes = await api.post("/payments/create-intent", {
         parcelId,
       });
+      console.log("Payment response:", JSON.stringify(paymentRes.data));
 
       // Confirmer le paiement avec la carte de test via notre backend
       await api.post("/payments/confirm-test", {
