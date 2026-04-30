@@ -94,20 +94,17 @@ const estimatePrice = async (req, res) => {
 const createParcel = async (req, res) => {
   try {
     console.log("=== CREATE PARCEL ===");
-    console.log("Body keys:", Object.keys(req.body));
-    console.log("Body size:", req.body.size);
-    console.log("Files:", req.file ? "présent" : "absent");
+    console.log("Body:", req.body || "VIDE");
+    console.log("File:", req.file ? "présent" : "absent");
     console.log("Content-Type:", req.headers["content-type"]);
-    console.log("Body reçu:", req.body);
-    console.log("File reçu:", req.file ? "oui" : "non");
-    const { weight, size, fragile, urgent, description, sender, recipient } =
-      req.body;
-    console.log("Size extrait:", size);
 
-    if (!BASE_PRICES[size]) {
+    const { weight, size, fragile, urgent, description, sender, recipient } =
+      req.body || {};
+
+    if (!size || !BASE_PRICES[size]) {
       return res
         .status(400)
-        .json({ success: false, message: "Taille invalide" });
+        .json({ success: false, message: `Taille invalide: "${size}"` });
     }
 
     const senderParsed = JSON.parse(sender);
