@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { COLORS } from "../../../constants/colors";
 import api from "../../../services/api";
+// import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Step5() {
   const router = useRouter();
@@ -55,6 +56,8 @@ export default function Step5() {
     if (!result.canceled) setPhoto(result.assets[0]);
   };
 
+  // Supprimer l'import AsyncStorage si tu l'as ajouté
+
   const handleSubmit = async () => {
     if (!photo) {
       Alert.alert(
@@ -63,24 +66,72 @@ export default function Step5() {
       );
       return;
     }
-    console.log("Params reçus:", JSON.stringify(params));
     setLoading(true);
-    try {
-      // 1 — Créer le colis
-      const formData = new FormData();
-      // ... (garde exactement le même code de création du colis)
 
-      const parcelRes = await api.post("/parcels", formData);
+    try {
+      const formData = new FormData();
+      formData.append("size", params.size);
+      formData.append(
+        "weight",
+        params.weight ? String(parseFloat(params.weight)) : "1",
+      );
+      formData.append("fragile", params.fragile);
+      formData.append("urgent", params.urgent);
+      formData.append("description", params.description || "");
+      formData.append(
+        "sender",
+        JSON.stringify({
+          firstName: params.senderFirstName,
+          lastName: params.senderLastName,
+          phone: params.senderPhone,
+          address: {
+            street: params.senderStreet,
+            city: params.senderCity,
+            postalCode: params.senderPostalCode,
+            lat: parseFloat(params.senderLat || 0),
+            lng: parseFloat(params.senderLng || 0),
+          },
+        }),
+      );
+      formData.append(
+        "recipient",
+        JSON.stringify({
+          firstName: params.recipientFirstName,
+          lastName: params.recipientLastName,
+          phone: params.recipientPhone,
+          address: {
+            street: params.recipientStreet,
+            city: params.recipientCity,
+            postalCode: params.recipientPostalCode,
+            lat: parseFloat(params.recipientLat || 0),
+            lng: parseFloat(params.recipientLng || 0),
+          },
+        }),
+      );
+      formData.append("photo", {
+        uri: photo.uri,
+        type: "image/jpeg",
+        name: "parcel.jpg",
+      });
+
+      // Utilise axios avec transformRequest pour ne pas modifier le FormData
+      const parcelRes = await api.post("/parcels", formData, {
+        transformRequest: (data) => data, // ← ne pas transformer le FormData
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       const parcelId = parcelRes.data.parcel._id;
+      console.log("Colis créé:", parcelId);
 
-      // 2 — Créer le PaymentIntent
+      // Créer le PaymentIntent
       const paymentRes = await api.post("/payments/create-intent", {
         parcelId,
       });
       const clientSecret = paymentRes.data.clientSecret;
 
-      // 3 — Rediriger vers la page de paiement avec le formulaire
+      // Rediriger vers la page de paiement
       router.push({
         pathname: "/(client)/send/payment",
         params: {
@@ -90,6 +141,7 @@ export default function Step5() {
         },
       });
     } catch (err) {
+      console.error("Erreur:", err.response?.data || err.message);
       Alert.alert(
         "Erreur",
         err.response?.data?.message || "Erreur lors de la création",
