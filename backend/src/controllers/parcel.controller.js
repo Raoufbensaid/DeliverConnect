@@ -93,6 +93,8 @@ const estimatePrice = async (req, res) => {
 // ================================
 const createParcel = async (req, res) => {
   try {
+    console.log("Body reçu:", req.body);
+    console.log("Size reçu:", req.body.size);
     const { weight, size, fragile, urgent, description, sender, recipient } =
       req.body;
 

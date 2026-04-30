@@ -49,7 +49,7 @@ router.post("/confirm-test", protect, async (req, res) => {
     await Payment.findOneAndUpdate(
       { parcelId },
       { status: "captured", stripePaymentIntentId: paymentIntentId },
-      { new: true },
+      { returnDocument: "after" }, // ← correct
     );
 
     res.json({ success: true, paymentIntent });

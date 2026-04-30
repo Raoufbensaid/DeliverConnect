@@ -35,9 +35,7 @@ export default function Step5() {
       aspect: [4, 3],
       quality: 0.8,
     });
-    if (!result.canceled) {
-      setPhoto(result.assets[0]);
-    }
+    if (!result.canceled) setPhoto(result.assets[0]);
   };
 
   const takePhoto = async () => {
@@ -54,9 +52,7 @@ export default function Step5() {
       aspect: [4, 3],
       quality: 0.8,
     });
-    if (!result.canceled) {
-      setPhoto(result.assets[0]);
-    }
+    if (!result.canceled) setPhoto(result.assets[0]);
   };
 
   const handleSubmit = async () => {
@@ -67,80 +63,31 @@ export default function Step5() {
       );
       return;
     }
+    console.log("Params reçus:", JSON.stringify(params));
     setLoading(true);
     try {
       // 1 — Créer le colis
       const formData = new FormData();
-      formData.append("size", params.size);
-      formData.append(
-        "weight",
-        params.weight ? String(parseFloat(params.weight)) : "1",
-      );
-      formData.append("fragile", params.fragile);
-      formData.append("urgent", params.urgent);
-      formData.append("description", params.description || "");
-      formData.append(
-        "sender",
-        JSON.stringify({
-          firstName: params.senderFirstName,
-          lastName: params.senderLastName,
-          phone: params.senderPhone,
-          address: {
-            street: params.senderStreet,
-            city: params.senderCity,
-            postalCode: params.senderPostalCode,
-            lat: parseFloat(params.senderLat || 0),
-            lng: parseFloat(params.senderLng || 0),
-          },
-        }),
-      );
-      formData.append(
-        "recipient",
-        JSON.stringify({
-          firstName: params.recipientFirstName,
-          lastName: params.recipientLastName,
-          phone: params.recipientPhone,
-          address: {
-            street: params.recipientStreet,
-            city: params.recipientCity,
-            postalCode: params.recipientPostalCode,
-            lat: parseFloat(params.recipientLat || 0),
-            lng: parseFloat(params.recipientLng || 0),
-          },
-        }),
-      );
-      formData.append("photo", {
-        uri: photo.uri,
-        type: "image/jpeg",
-        name: "parcel.jpg",
-      });
+      // ... (garde exactement le même code de création du colis)
 
-      const parcelRes = await api.post("/parcels", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const parcelRes = await api.post("/parcels", formData);
+
       const parcelId = parcelRes.data.parcel._id;
 
       // 2 — Créer le PaymentIntent
       const paymentRes = await api.post("/payments/create-intent", {
         parcelId,
       });
-      console.log("Payment response:", JSON.stringify(paymentRes.data));
+      const clientSecret = paymentRes.data.clientSecret;
 
-      // Confirmer le paiement avec la carte de test via notre backend
-      await api.post("/payments/confirm-test", {
-        parcelId,
-        clientSecret: paymentRes.data.clientSecret, // ← on passe le clientSecret
-      });
-
-      // 3 — Confirmer le paiement avec la carte de test via notre backend
-      await api.post("/payments/confirm-test", {
-        parcelId,
-        paymentIntentId: paymentRes.data.paymentIntentId,
-      });
-
-      router.replace({
-        pathname: "/(client)/send/confirmation",
-        params: { parcelId },
+      // 3 — Rediriger vers la page de paiement avec le formulaire
+      router.push({
+        pathname: "/(client)/send/payment",
+        params: {
+          parcelId,
+          clientSecret,
+          price: params.price,
+        },
       });
     } catch (err) {
       Alert.alert(
@@ -277,15 +224,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   photoContainer: { alignItems: "center", marginBottom: 16 },
-  photo: {
-    width: "100%",
-    height: 200,
-    borderRadius: 16,
-    marginBottom: 10,
-  },
-  changePhotoBtn: {
-    padding: 8,
-  },
+  photo: { width: "100%", height: 200, borderRadius: 16, marginBottom: 10 },
+  changePhotoBtn: { padding: 8 },
   changePhotoText: { fontSize: 13, color: COLORS.primary },
   photoPlaceholder: {
     width: "100%",
