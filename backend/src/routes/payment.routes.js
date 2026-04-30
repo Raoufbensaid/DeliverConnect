@@ -29,13 +29,12 @@ router.post("/confirm-test", protect, async (req, res) => {
     const { parcelId, clientSecret } = req.body;
     const stripe = getStripe();
 
-    // Extraire le paymentIntentId depuis le clientSecret
-    // Format : pi_xxxxx_secret_xxxxx
     const paymentIntentId = clientSecret.split("_secret_")[0];
 
     // Confirmer avec la carte de test Stripe
     const paymentIntent = await stripe.paymentIntents.confirm(paymentIntentId, {
       payment_method: "pm_card_visa",
+      return_url: "https://deliverconnect-production.up.railway.app",
     });
 
     // Mettre à jour le payment en base
@@ -50,4 +49,5 @@ router.post("/confirm-test", protect, async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
 module.exports = router;

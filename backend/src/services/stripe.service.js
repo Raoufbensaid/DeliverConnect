@@ -2,12 +2,15 @@ const getStripe = require("../config/stripe");
 
 // Créer un PaymentIntent — le client paie avant publication
 const createPaymentIntent = async (amount) => {
-  const paymentIntent = await getStripe().paymentIntents.create({
-    amount: Math.round(amount * 100), // Stripe travaille en centimes
+  const stripe = getStripe();
+  return await stripe.paymentIntents.create({
+    amount: Math.round(amount * 100),
     currency: "eur",
-    automatic_payment_methods: { enabled: true },
+    automatic_payment_methods: {
+      enabled: true,
+      allow_redirects: "never", // ← évite les redirections
+    },
   });
-  return paymentIntent;
 };
 
 // Transférer l'argent au livreur (80%)
