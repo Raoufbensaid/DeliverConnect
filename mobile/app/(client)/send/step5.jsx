@@ -125,6 +125,12 @@ export default function Step5() {
         parcelId,
       });
 
+      // Confirmer le paiement avec la carte de test via notre backend
+      await api.post("/payments/confirm-test", {
+        parcelId,
+        clientSecret: paymentRes.data.clientSecret, // ← on passe le clientSecret
+      });
+
       // 3 — Confirmer le paiement avec la carte de test via notre backend
       await api.post("/payments/confirm-test", {
         parcelId,
