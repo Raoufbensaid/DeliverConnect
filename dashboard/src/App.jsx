@@ -41,7 +41,6 @@ const tooltipStyle = {
   },
 };
 
-// Données fixes pour les graphiques analytiques
 const REGISTRATION_DATA = [
   { date: "01", inscrits: 3, actifs: 2 },
   { date: "02", inscrits: 5, actifs: 3 },
@@ -289,6 +288,67 @@ export default function App() {
   const [distanceStats, setDistanceStats] = useState(null);
   const [reviews, setReviews] = useState([]);
 
+  // ══ Messages states ══
+  const [conversations, setConversations] = useState([]);
+  const [selectedConv, setSelectedConv] = useState(null);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+
+  const heatmapData = [
+    0, 1, 2, 3, 4, 3, 1, 2, 3, 4, 4, 3, 2, 1, 3, 4, 4, 3, 2, 1, 2, 3, 4, 4, 3,
+    2, 1, 2, 3, 4, 4, 3, 2, 1, 2, 3, 4, 4, 3, 2, 1, 0,
+  ];
+  const scatterDots = [
+    { x: 8, y: 20, c: "#63B3ED" },
+    { x: 15, y: 30, c: "#63B3ED" },
+    { x: 25, y: 45, c: "#48BB78" },
+    { x: 35, y: 40, c: "#48BB78" },
+    { x: 45, y: 55, c: "#F6AD55" },
+    { x: 55, y: 50, c: "#F6AD55" },
+    { x: 65, y: 70, c: "#B794F4" },
+    { x: 75, y: 60, c: "#B794F4" },
+    { x: 85, y: 75, c: "#FC8181" },
+    { x: 12, y: 25, c: "#63B3ED" },
+    { x: 30, y: 42, c: "#48BB78" },
+    { x: 50, y: 55, c: "#F6AD55" },
+    { x: 70, y: 65, c: "#B794F4" },
+    { x: 90, y: 80, c: "#FC8181" },
+    { x: 20, y: 35, c: "#63B3ED" },
+  ];
+  const funnelSteps = [
+    { label: "Visites", value: 1240, color: "#63B3ED" },
+    { label: "Inscriptions", value: 842, color: "#63B3ED" },
+    { label: "1ère annonce", value: 521, color: "#48BB78" },
+    { label: "Paiement", value: 372, color: "#B794F4" },
+    { label: "Livré", value: 274, color: "#F6AD55" },
+    { label: "Évaluation", value: 174, color: "#FC8181" },
+  ];
+  const sparkData = {
+    inscrits: [3, 5, 2, 8, 6, 9, 12],
+    sessions: [20, 35, 28, 45, 38, 52, 48],
+    duree: [5, 8, 6, 9, 7, 8, 10],
+    conversion: [18, 20, 17, 22, 21, 23, 25],
+  };
+  const roleData = [
+    { name: "Clients", value: overview?.users?.clients || 0 },
+    { name: "Livreurs", value: overview?.users?.livreurs || 0 },
+    {
+      name: "Admins",
+      value: users.filter((u) => u.role === "admin").length || 1,
+    },
+  ];
+
+  const registrationData = useMemo(() => {
+    if (revenue.length > 0) {
+      return revenue.map((r, i) => ({
+        date: r._id?.slice(5),
+        inscrits:
+          REGISTRATION_DATA[i % REGISTRATION_DATA.length]?.inscrits || 3,
+        actifs: REGISTRATION_DATA[i % REGISTRATION_DATA.length]?.actifs || 2,
+      }));
+    }
+    return REGISTRATION_DATA;
+  }, [revenue]);
+
   useEffect(() => {
     document.body.className = theme;
   }, [theme]);
@@ -359,61 +419,44 @@ export default function App() {
     fetchAll();
   }, [token]);
 
-  const heatmapData = [
-    0, 1, 2, 3, 4, 3, 1, 2, 3, 4, 4, 3, 2, 1, 3, 4, 4, 3, 2, 1, 2, 3, 4, 4, 3,
-    2, 1, 2, 3, 4, 4, 3, 2, 1, 2, 3, 4, 4, 3, 2, 1, 0,
-  ];
-  const scatterDots = [
-    { x: 8, y: 20, c: "#63B3ED" },
-    { x: 15, y: 30, c: "#63B3ED" },
-    { x: 25, y: 45, c: "#48BB78" },
-    { x: 35, y: 40, c: "#48BB78" },
-    { x: 45, y: 55, c: "#F6AD55" },
-    { x: 55, y: 50, c: "#F6AD55" },
-    { x: 65, y: 70, c: "#B794F4" },
-    { x: 75, y: 60, c: "#B794F4" },
-    { x: 85, y: 75, c: "#FC8181" },
-    { x: 12, y: 25, c: "#63B3ED" },
-    { x: 30, y: 42, c: "#48BB78" },
-    { x: 50, y: 55, c: "#F6AD55" },
-    { x: 70, y: 65, c: "#B794F4" },
-    { x: 90, y: 80, c: "#FC8181" },
-    { x: 20, y: 35, c: "#63B3ED" },
-  ];
-  const funnelSteps = [
-    { label: "Visites", value: 1240, color: "#63B3ED" },
-    { label: "Inscriptions", value: 842, color: "#63B3ED" },
-    { label: "1ère annonce", value: 521, color: "#48BB78" },
-    { label: "Paiement", value: 372, color: "#B794F4" },
-    { label: "Livré", value: 274, color: "#F6AD55" },
-    { label: "Évaluation", value: 174, color: "#FC8181" },
-  ];
-  const sparkData = {
-    inscrits: [3, 5, 2, 8, 6, 9, 12],
-    sessions: [20, 35, 28, 45, 38, 52, 48],
-    duree: [5, 8, 6, 9, 7, 8, 10],
-    conversion: [18, 20, 17, 22, 21, 23, 25],
-  };
-  const roleData = [
-    { name: "Clients", value: overview?.users?.clients || 0 },
-    { name: "Livreurs", value: overview?.users?.livreurs || 0 },
-    {
-      name: "Admins",
-      value: users.filter((u) => u.role === "admin").length || 1,
-    },
-  ];
+  // ══ Chargement messages quand on clique sur la page ══
+  useEffect(() => {
+    if (page !== "messages" || !token || conversations.length > 0) return;
+    const fetchConversations = async () => {
+      setLoadingMessages(true);
+      try {
+        const h = { Authorization: `Bearer ${token}` };
+        const parcelsRes = await api.get("/users/parcels", { headers: h });
+        const allParcels = parcelsRes.data.parcels || [];
 
-  const registrationData = useMemo(() => {
-    if (revenue.length > 0) {
-      return revenue.map((r, i) => ({
-        date: r._id?.slice(5),
-        inscrits:
-          REGISTRATION_DATA[i % REGISTRATION_DATA.length]?.inscrits || 3,
-        actifs: REGISTRATION_DATA[i % REGISTRATION_DATA.length]?.actifs || 2,
-      }));
-    }
-    return REGISTRATION_DATA;
-  }, [revenue]);
+        const convs = await Promise.all(
+          allParcels.map(async (p) => {
+            try {
+              const msgRes = await api.get(`/messages/${p._id}`, {
+                headers: h,
+              });
+              const msgs = msgRes.data.messages || [];
+              if (msgs.length === 0) return null;
+              return {
+                parcel: p,
+                messages: msgs,
+                lastMessage: msgs[msgs.length - 1],
+                count: msgs.length,
+              };
+            } catch {
+              return null;
+            }
+          }),
+        );
+        setConversations(convs.filter(Boolean));
+      } catch (err) {
+        console.error("Erreur chargement messages:", err);
+      } finally {
+        setLoadingMessages(false);
+      }
+    };
+    fetchConversations();
+  }, [page, token]);
 
   if (!token)
     return (
@@ -1704,12 +1747,275 @@ export default function App() {
     );
   };
 
-  const renderMessages = () => (
-    <div className="table-card">
-      <div className="chart-title">Messagerie — aperçu</div>
-      <div className="chart-empty">Les conversations apparaissent ici</div>
-    </div>
-  );
+  const renderMessages = () => {
+    if (loadingMessages)
+      return <div className="loading">Chargement des conversations...</div>;
+
+    return (
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: selectedConv ? "1fr 1fr" : "1fr",
+          gap: "16px",
+        }}
+      >
+        {/* Liste des conversations */}
+        <div className="table-card">
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "12px",
+            }}
+          >
+            <div className="chart-title" style={{ marginBottom: 0 }}>
+              Conversations ({conversations.length})
+            </div>
+            {selectedConv && (
+              <span
+                onClick={() => setSelectedConv(null)}
+                style={{
+                  fontSize: "11px",
+                  color: "var(--text3)",
+                  cursor: "pointer",
+                }}
+              >
+                ✕ Fermer
+              </span>
+            )}
+          </div>
+
+          {conversations.length === 0 ? (
+            <div className="chart-empty">Aucune conversation</div>
+          ) : (
+            conversations.map((conv, i) => (
+              <div
+                key={i}
+                onClick={() =>
+                  setSelectedConv(
+                    selectedConv?.parcel._id === conv.parcel._id ? null : conv,
+                  )
+                }
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "10px 8px",
+                  borderBottom: "0.5px solid var(--border)",
+                  cursor: "pointer",
+                  borderRadius: "8px",
+                  background:
+                    selectedConv?.parcel._id === conv.parcel._id
+                      ? "var(--active)"
+                      : "transparent",
+                  transition: "background .15s",
+                }}
+              >
+                {/* Avatar expéditeur */}
+                <div
+                  style={{
+                    width: "38px",
+                    height: "38px",
+                    borderRadius: "50%",
+                    background: "var(--bg3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "12px",
+                    color: "var(--primary)",
+                    fontWeight: "700",
+                    flexShrink: 0,
+                  }}
+                >
+                  {conv.parcel.sender?.firstName?.[0]}
+                  {conv.parcel.sender?.lastName?.[0]}
+                </div>
+
+                {/* Infos conversation */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "3px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        color: "var(--text)",
+                      }}
+                    >
+                      {conv.parcel.sender?.address?.city} →{" "}
+                      {conv.parcel.recipient?.address?.city}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "var(--text3)",
+                        flexShrink: 0,
+                        marginLeft: "8px",
+                      }}
+                    >
+                      {new Date(conv.lastMessage.createdAt).toLocaleDateString(
+                        "fr-FR",
+                        { day: "numeric", month: "short" },
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "var(--text2)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      marginBottom: "5px",
+                    }}
+                  >
+                    {conv.lastMessage.content}
+                  </div>
+                  <div
+                    style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        padding: "1px 7px",
+                        borderRadius: "99px",
+                        background: "var(--bg3)",
+                        color: "var(--text3)",
+                      }}
+                    >
+                      💬 {conv.count} message{conv.count > 1 ? "s" : ""}
+                    </span>
+                    <span className={`pill pill-${conv.parcel.status}`}>
+                      {STATUS_LABEL[conv.parcel.status]}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Détail conversation */}
+        {selectedConv && (
+          <div
+            className="table-card"
+            style={{ display: "flex", flexDirection: "column" }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                marginBottom: "12px",
+                paddingBottom: "12px",
+                borderBottom: "0.5px solid var(--border)",
+              }}
+            >
+              <div className="chart-title" style={{ marginBottom: "6px" }}>
+                {selectedConv.parcel.sender?.address?.city} →{" "}
+                {selectedConv.parcel.recipient?.address?.city}
+              </div>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    fontSize: "11px",
+                    padding: "4px 10px",
+                    borderRadius: "99px",
+                    background: "var(--bg3)",
+                    color: "var(--text2)",
+                  }}
+                >
+                  👤 {selectedConv.parcel.sender?.firstName}{" "}
+                  {selectedConv.parcel.sender?.lastName}
+                </div>
+                {selectedConv.parcel.delivererId && (
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      padding: "4px 10px",
+                      borderRadius: "99px",
+                      background: "var(--active)",
+                      color: "var(--primary)",
+                    }}
+                  >
+                    🚗 {selectedConv.parcel.delivererId?.firstName}{" "}
+                    {selectedConv.parcel.delivererId?.lastName}
+                  </div>
+                )}
+                <span className={`pill pill-${selectedConv.parcel.status}`}>
+                  {STATUS_LABEL[selectedConv.parcel.status]}
+                </span>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "12px",
+                maxHeight: "500px",
+                overflowY: "auto",
+                padding: "4px 0",
+              }}
+            >
+              {selectedConv.messages.map((msg, j) => {
+                const isClient = msg.senderId?.role === "client";
+                return (
+                  <div
+                    key={j}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: isClient ? "flex-start" : "flex-end",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "var(--text3)",
+                        marginBottom: "3px",
+                      }}
+                    >
+                      {msg.senderId?.firstName} {msg.senderId?.lastName}
+                      <span
+                        style={{ marginLeft: "6px", color: "var(--text3)" }}
+                      >
+                        {new Date(msg.createdAt).toLocaleTimeString("fr-FR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                    <div
+                      style={{
+                        maxWidth: "75%",
+                        padding: "8px 12px",
+                        borderRadius: isClient
+                          ? "12px 12px 12px 4px"
+                          : "12px 12px 4px 12px",
+                        background: isClient ? "var(--bg3)" : "var(--primary)",
+                        color: isClient ? "var(--text)" : "#fff",
+                        fontSize: "13px",
+                        lineHeight: "1.5",
+                      }}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const pages = {
     overview: renderOverview,
@@ -1727,7 +2033,24 @@ export default function App() {
       <div className="sidebar">
         <div className="logo">
           <div className="logo-icon">
-            <span>DC</span>
+            <svg viewBox="0 0 40 40" width="28" height="28">
+              <polygon
+                points="20,3 34,11 34,29 20,37 6,29 6,11"
+                fill="#1A56DB"
+              />
+              <path
+                d="M12 13 L12 27 Q22 27 24 20 Q26 13 16 13 Z"
+                fill="white"
+                opacity="0.95"
+              />
+              <path
+                d="M28 15 Q22 13 22 20 Q22 27 28 25"
+                fill="none"
+                stroke="#48BB78"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+            </svg>
           </div>
           <span className="logo-text">DeliverConnect</span>
         </div>
