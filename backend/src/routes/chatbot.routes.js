@@ -43,7 +43,7 @@ RÈGLES IMPORTANTES :
 - Tutoie l'utilisateur
 - Commence toujours par une phrase courte et directe`;
 
-router.post("/", protect, async (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const { message, history = [] } = req.body;
 
