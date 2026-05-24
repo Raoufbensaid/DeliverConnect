@@ -9,6 +9,8 @@ app.use(
       "http://localhost:5173",
       "http://localhost:3000",
       "http://localhost:8081",
+      "https://deliver-connect.vercel.app",
+      /\.vercel\.app$/,
     ],
     credentials: true,
   }),
