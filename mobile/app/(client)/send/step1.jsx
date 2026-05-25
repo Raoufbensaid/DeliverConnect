@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { COLORS } from "../../../constants/colors";
+import ChatbotBubble from "../../../components/ChatbotBubble";
 
 const SIZES = [
   { id: "s", label: "S", desc: "Livre, chaussures", dims: "20×15×10 cm" },
@@ -174,6 +175,7 @@ export default function Step1() {
           <Text style={styles.nextBtnText}>Continuer →</Text>
         </TouchableOpacity>
       </ScrollView>
+      <ChatbotBubble />
     </KeyboardAvoidingView>
   );
 }

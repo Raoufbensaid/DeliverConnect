@@ -12,6 +12,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { COLORS } from "../../../constants/colors";
 import AddressInput from "../../../components/AddressInput";
+import ChatbotBubble from "../../../components/ChatbotBubble";
 
 export default function Step3() {
   const router = useRouter();
@@ -119,6 +120,7 @@ export default function Step3() {
           <Text style={styles.nextBtnText}>Continuer →</Text>
         </TouchableOpacity>
       </ScrollView>
+      <ChatbotBubble />
     </KeyboardAvoidingView>
   );
 }

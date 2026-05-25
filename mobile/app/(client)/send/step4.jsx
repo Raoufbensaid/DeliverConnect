@@ -11,6 +11,7 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { COLORS } from "../../../constants/colors";
 import api from "../../../services/api";
+import ChatbotBubble from "../../../components/ChatbotBubble";
 
 export default function Step4() {
   const router = useRouter();
@@ -202,6 +203,7 @@ export default function Step4() {
       <TouchableOpacity style={styles.recalcBtn} onPress={fetchEstimate}>
         <Text style={styles.recalcText}>🔄 Recalculer</Text>
       </TouchableOpacity>
+      <ChatbotBubble />
     </ScrollView>
   );
 }

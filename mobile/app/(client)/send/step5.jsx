@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { COLORS } from "../../../constants/colors";
 import api from "../../../services/api";
+import ChatbotBubble from "../../../components/ChatbotBubble";
 // import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Step5() {
@@ -241,6 +242,7 @@ export default function Step5() {
           <Text style={styles.submitBtnText}>Publier l'annonce 🚀</Text>
         )}
       </TouchableOpacity>
+      <ChatbotBubble />
     </ScrollView>
   );
 }

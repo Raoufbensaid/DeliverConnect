@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,14 +10,12 @@ import {
   Alert,
   Modal,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  FlatList,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { COLORS } from "../../constants/colors";
 import { getUser, logout } from "../../store/auth";
 import api from "../../services/api";
+import ChatbotBubble from "../../components/ChatbotBubble";
 
 const statusLabel = {
   pending: { label: "En attente", color: "#BA7517", bg: "#FAEEDA" },
@@ -30,14 +28,6 @@ const statusLabel = {
 const TABS = [
   { key: "active", label: "En cours" },
   { key: "delivered", label: "Livré" },
-];
-
-const SUGGESTIONS = [
-  "Comment envoyer un colis ?",
-  "Estimer le prix d'un envoi",
-  "Comment fonctionne la livraison ?",
-  "Comment suivre mon colis ?",
-  "Comment évaluer le livreur ?",
 ];
 
 function StarRating({ value, onChange }) {
@@ -94,7 +84,6 @@ function YesNo({ value, onChange }) {
 
 export default function ClientHome() {
   const router = useRouter();
-  const flatListRef = useRef(null);
 
   const [user, setUser] = useState(null);
   const [parcels, setParcels] = useState([]);
@@ -114,19 +103,6 @@ export default function ClientHome() {
   const [hadIssues, setHadIssues] = useState(null);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-  // Chatbot
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Bonjour ! Je suis **Raouf**, l'assistant DeliverConnect 🤖\n\nJe peux t'aider à :\n• Envoyer un colis\n• Estimer un prix\n• Comprendre le processus de livraison\n\nQue puis-je faire pour toi ?",
-    },
-  ]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatHistory, setChatHistory] = useState([]);
 
   const fetchData = async () => {
     try {
@@ -231,97 +207,6 @@ export default function ClientHome() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  // ════ CHATBOT ════
-  const sendMessage = async (messageText) => {
-    const text = messageText || chatInput.trim();
-    if (!text || chatLoading) return;
-
-    setChatInput("");
-
-    const userMsg = { role: "user", content: text };
-    const newMessages = [...chatMessages, userMsg];
-    setChatMessages(newMessages);
-    setChatLoading(true);
-
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-
-    try {
-      const res = await api.post("/chatbot", {
-        message: text,
-        history: chatHistory,
-      });
-
-      const assistantMsg = { role: "assistant", content: res.data.reply };
-      setChatMessages((prev) => [...prev, assistantMsg]);
-      setChatHistory((prev) => [
-        ...prev,
-        { role: "user", content: text },
-        { role: "assistant", content: res.data.reply },
-      ]);
-
-      setTimeout(
-        () => flatListRef.current?.scrollToEnd({ animated: true }),
-        100,
-      );
-    } catch (err) {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "Désolé, je rencontre un problème technique. Réessaie dans un instant ! 🔧",
-        },
-      ]);
-    } finally {
-      setChatLoading(false);
-    }
-  };
-
-  const resetChat = () => {
-    setChatMessages([
-      {
-        role: "assistant",
-        content:
-          "Bonjour ! Je suis **Raouf**, l'assistant DeliverConnect 🤖\n\nJe peux t'aider à :\n• Envoyer un colis\n• Estimer un prix\n• Comprendre le processus de livraison\n\nQue puis-je faire pour toi ?",
-      },
-    ]);
-    setChatHistory([]);
-    setChatInput("");
-  };
-
-  const renderChatMessage = ({ item, index }) => {
-    const isUser = item.role === "user";
-    return (
-      <View
-        style={{
-          marginBottom: 12,
-          alignItems: isUser ? "flex-end" : "flex-start",
-        }}
-      >
-        {!isUser && (
-          <View style={styles.chatAvatar}>
-            <Text style={styles.chatAvatarText}>AI</Text>
-          </View>
-        )}
-        <View
-          style={[
-            styles.chatBubble,
-            isUser ? styles.chatBubbleUser : styles.chatBubbleBot,
-          ]}
-        >
-          <Text
-            style={[
-              styles.chatBubbleText,
-              isUser ? styles.chatBubbleTextUser : styles.chatBubbleTextBot,
-            ]}
-          >
-            {item.content.replace(/\*\*/g, "")}
-          </Text>
-        </View>
-      </View>
-    );
   };
 
   const activeParcels = parcels.filter((p) =>
@@ -539,145 +424,8 @@ export default function ClientHome() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* ════ BULLE CHATBOT FLOTTANTE ════ */}
-      <TouchableOpacity
-        style={styles.chatbotBubble}
-        onPress={() => setChatOpen(true)}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.chatbotBubbleIcon}>🤖</Text>
-        <View style={styles.chatbotBubbleDot} />
-      </TouchableOpacity>
-
-      {/* ════ MODAL CHATBOT ════ */}
-      <Modal
-        visible={chatOpen}
-        animationType="slide"
-        onRequestClose={() => setChatOpen(false)}
-      >
-        <KeyboardAvoidingView
-          style={{ flex: 1, backgroundColor: COLORS.grayLight }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          {/* Header chatbot */}
-          <View style={styles.chatbotHeader}>
-            <View style={styles.chatbotHeaderLeft}>
-              <View style={styles.chatbotHeaderAvatar}>
-                <Text style={{ fontSize: 20 }}>🤖</Text>
-              </View>
-              <View>
-                <Text style={styles.chatbotHeaderName}>Raouf</Text>
-                <View
-                  style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-                >
-                  <View style={styles.chatbotOnlineDot} />
-                  <Text style={styles.chatbotHeaderSub}>
-                    Assistant DeliverConnect
-                  </Text>
-                </View>
-              </View>
-            </View>
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              <TouchableOpacity
-                onPress={resetChat}
-                style={styles.chatbotHeaderBtn}
-              >
-                <Text style={{ fontSize: 16 }}>🔄</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setChatOpen(false)}
-                style={styles.chatbotHeaderBtn}
-              >
-                <Text style={{ fontSize: 18, color: COLORS.textSecond }}>
-                  ✕
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Messages */}
-          <FlatList
-            ref={flatListRef}
-            data={chatMessages}
-            keyExtractor={(_, i) => String(i)}
-            renderItem={renderChatMessage}
-            contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
-            onContentSizeChange={() =>
-              flatListRef.current?.scrollToEnd({ animated: true })
-            }
-            showsVerticalScrollIndicator={false}
-            ListFooterComponent={
-              chatLoading ? (
-                <View
-                  style={[
-                    styles.chatBubble,
-                    styles.chatBubbleBot,
-                    { alignSelf: "flex-start", paddingHorizontal: 16 },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: COLORS.textSecond,
-                      fontSize: 18,
-                      letterSpacing: 4,
-                    }}
-                  >
-                    ···
-                  </Text>
-                </View>
-              ) : null
-            }
-          />
-
-          {/* Suggestions */}
-          {chatMessages.length <= 1 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingHorizontal: 16,
-                paddingBottom: 8,
-                gap: 8,
-              }}
-            >
-              {SUGGESTIONS.map((s, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.suggestionChip}
-                  onPress={() => sendMessage(s)}
-                >
-                  <Text style={styles.suggestionText}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-
-          {/* Input */}
-          <View style={styles.chatbotInputRow}>
-            <TextInput
-              style={styles.chatbotInput}
-              placeholder="Pose ta question à Raouf...."
-              placeholderTextColor={COLORS.textSecond}
-              value={chatInput}
-              onChangeText={setChatInput}
-              multiline
-              maxLength={500}
-              onSubmitEditing={() => sendMessage()}
-            />
-            <TouchableOpacity
-              style={[
-                styles.chatbotSendBtn,
-                (!chatInput.trim() || chatLoading) &&
-                  styles.chatbotSendBtnDisabled,
-              ]}
-              onPress={() => sendMessage()}
-              disabled={!chatInput.trim() || chatLoading}
-            >
-              <Text style={styles.chatbotSendBtnText}>→</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      {/* Chatbot flottant */}
+      <ChatbotBubble />
 
       {/* Modal évaluation */}
       <Modal
@@ -911,146 +659,6 @@ const styles = StyleSheet.create({
     borderColor: "#C7D2FE",
   },
   chatBtnText: { fontSize: 13, fontWeight: "600", color: COLORS.primary },
-
-  // ════ CHATBOT ════
-  chatbotBubble: {
-    position: "absolute",
-    bottom: 24,
-    right: 20,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  chatbotBubbleIcon: { fontSize: 26 },
-  chatbotBubbleDot: {
-    position: "absolute",
-    top: 4,
-    right: 4,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#48BB78",
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-  },
-  chatbotHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: 60,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayBorder,
-  },
-  chatbotHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  chatbotHeaderAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#EEF2FF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  chatbotHeaderName: { fontSize: 16, fontWeight: "700", color: COLORS.text },
-  chatbotHeaderSub: { fontSize: 11, color: COLORS.textSecond },
-  chatbotOnlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#48BB78",
-  },
-  chatbotHeaderBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: COLORS.grayLight,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  chatAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#EEF2FF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  chatAvatarText: { fontSize: 10, fontWeight: "700", color: COLORS.primary },
-  chatBubble: {
-    maxWidth: "80%",
-    borderRadius: 16,
-    padding: 12,
-    paddingHorizontal: 14,
-    marginBottom: 2,
-  },
-  chatBubbleUser: {
-    backgroundColor: COLORS.primary,
-    borderBottomRightRadius: 4,
-    alignSelf: "flex-end",
-  },
-  chatBubbleBot: {
-    backgroundColor: COLORS.white,
-    borderBottomLeftRadius: 4,
-    alignSelf: "flex-start",
-    borderWidth: 1,
-    borderColor: COLORS.grayBorder,
-  },
-  chatBubbleText: { fontSize: 14, lineHeight: 20 },
-  chatBubbleTextUser: { color: COLORS.white },
-  chatBubbleTextBot: { color: COLORS.text },
-  suggestionChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.grayBorder,
-  },
-  suggestionText: { fontSize: 12, color: COLORS.primary, fontWeight: "500" },
-  chatbotInputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    padding: 12,
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.grayBorder,
-    gap: 10,
-  },
-  chatbotInput: {
-    flex: 1,
-    backgroundColor: COLORS.grayLight,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: COLORS.text,
-    maxHeight: 100,
-    borderWidth: 1,
-    borderColor: COLORS.grayBorder,
-  },
-  chatbotSendBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: COLORS.primary,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  chatbotSendBtnDisabled: { backgroundColor: COLORS.grayBorder },
-  chatbotSendBtnText: { fontSize: 18, color: COLORS.white, fontWeight: "700" },
-
-  // Review
   reviewSection: {
     marginBottom: 20,
     paddingBottom: 20,

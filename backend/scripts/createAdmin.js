@@ -17,7 +17,7 @@ const run = async () => {
   await User.create({
     firstName: "Admin",
     lastName: "DeliverConnect",
-    email: "admin@deliverconnect.com",
+    email: "adminraouf@deliverconnect.com",
     phone: "0600000000",
     password,
     role: "admin",

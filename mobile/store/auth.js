@@ -18,6 +18,11 @@ export const getUser = async () => {
 };
 
 export const logout = async () => {
-  await AsyncStorage.removeItem("token");
-  await AsyncStorage.removeItem("user");
+  try {
+    const user = await getUser();
+    const chatKey = `deliverconnect_chat_${user?.id || user?._id || "guest"}`;
+    await AsyncStorage.multiRemove(["token", "user", chatKey]);
+  } catch {
+    await AsyncStorage.multiRemove(["token", "user"]);
+  }
 };
